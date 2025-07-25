@@ -2,16 +2,19 @@ import React, { useState, useEffect } from "react";
 import CreateCard from "../components/CreateCard";
 import EditLecturer from "../components/EditCards/EditLecturer";
 import CreateStudentForm from "../components/CreateStudentForm";
+import CreateClassForm from "../components/Create/CreateClassForm";
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("modules");
   const [showStudentForm, setShowStudentForm] = useState(false);
+  const [showClassForm, setShowClassForm] = useState(false);
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   const [modules, setModules] = useState([]);
   const [students, setStudents] = useState([]);
   const [lecturers, setLecturers] = useState([]);
+  const [classes, setClasses] = useState([]);
   const [timetable, setTimetable] = useState([]);
 
   const [editingItem, setEditingItem] = useState(null);
@@ -20,17 +23,6 @@ const Admin = () => {
   const moduleFields = [
     { name: "code", placeholder: "Module Code" },
     { name: "name", placeholder: "Module Name" },
-  ];
-
-  const studentFields = [
-    { name: "name", placeholder: "Full Name" },
-    { name: "studentNumber", placeholder: "Student Number" },
-    {
-      name: "modules",
-      type: "array",
-      placeholder: "Module Codes (comma-separated)",
-    },
-    { name: "studentImage", placeholder: "Face Image Data" },
   ];
 
   const lecturerCreateFields = [
@@ -53,26 +45,65 @@ const Admin = () => {
   ];
 
   const fetchStudents = async () => {
-    const res = await fetch(`${BACKEND_URL}/users/students`);
-    const data = await res.json();
-    setStudents(data);
+    try {
+      const res = await fetch(`${BACKEND_URL}/users/students`);
+      if (!res.ok) throw new Error("Failed to fetch students");
+      const data = await res.json();
+      setStudents(data);
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    }
   };
 
   const fetchLecturers = async () => {
-    const res = await fetch(`${BACKEND_URL}/users/lecturers`);
-    const data = await res.json();
-    setLecturers(data);
+    try {
+      const res = await fetch(`${BACKEND_URL}/users/lecturers`);
+      if (!res.ok) throw new Error("Failed to fetch lecturers");
+      const data = await res.json();
+      setLecturers(data);
+    } catch (error) {
+      console.error("Error fetching lecturers:", error);
+    }
   };
 
   const fetchModules = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/modules`);
+      if (!res.ok) throw new Error("Failed to fetch modules");
       const data = await res.json();
       setModules(data);
-    } catch (err) {
-      console.error("Error fetching modules:", err);
+    } catch (error) {
+      console.error("Error fetching modules:", error);
     }
   };
+
+  const fetchClasses = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/class`);
+      if (!res.ok) throw new Error("Failed to fetch classes");
+      const data = await res.json();
+      setClasses(data);
+    } catch (error) {
+      console.error("Error fetching classes:", error);
+    }
+  };
+
+  const onClassCreated = () => {
+    fetchClasses();
+    setShowClassForm(false);
+  };
+
+  useEffect(() => {
+    fetchStudents();
+    fetchLecturers();
+    fetchModules();
+  }, [BACKEND_URL]);
+
+  useEffect(() => {
+    if (activeTab === "class") {
+      fetchClasses();
+    }
+  }, [activeTab]);
 
   const deleteModule = async (id) => {
     try {
@@ -122,13 +153,13 @@ const Admin = () => {
     }
   };
 
-  useEffect(() => {
-    fetchStudents();
-    fetchLecturers();
-    fetchModules();
-  }, [BACKEND_URL]);
+  const formatTime = (time) => {
+    if (!time) return "";
+    if (time.seconds) return new Date(time.seconds * 1000).toLocaleString();
+    return new Date(time).toLocaleString();
+  };
 
-  const tabs = ["modules", "students", "lecturers", "timetable"];
+  const tabs = ["modules", "students", "lecturers", "class", "timetable"];
 
   return (
     <div className="p-6">
@@ -217,7 +248,7 @@ const Admin = () => {
               <CreateStudentForm
                 onSubmit={(data) => {
                   createUser({ ...data, type: "student" });
-                  setShowStudentForm(false); // hide after submission if needed
+                  setShowStudentForm(false);
                 }}
                 modules={modules}
               />
@@ -258,11 +289,13 @@ const Admin = () => {
         {activeTab === "lecturers" && (
           <div>
             <h2 className="text-xl font-bold mb-4">Lecturers</h2>
+
             <CreateCard
               title="Lecturer"
               fields={lecturerCreateFields}
               onSubmit={(data) => createUser({ ...data, type: "lecturer" })}
             />
+
             <table className="w-full mt-6 table-auto border">
               <thead className="bg-gray-100">
                 <tr>
@@ -301,9 +334,76 @@ const Admin = () => {
             />
           </div>
         )}
+
+        {activeTab === "class" &&
+          (() => {
+            const lecturerMap = {};
+            lecturers.forEach((l) => {
+              lecturerMap[l.id] = l.name;
+            });
+
+            const studentMap = {};
+            students.forEach((s) => {
+              studentMap[s.id] = s.name;
+            });
+
+            return (
+              <div>
+                <h2 className="text-xl font-bold mb-4">Classes</h2>
+                <button
+                  className="bg-blue-600 text-white px-4 py-2 rounded mb-4"
+                  onClick={() => setShowClassForm((prev) => !prev)}
+                >
+                  {showClassForm ? "Cancel" : "Add Class"}
+                </button>
+
+                {showClassForm && (
+                  <CreateClassForm onClassCreated={onClassCreated} />
+                )}
+
+                <table className="w-full mt-6 table-auto border">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="border p-2">Module</th>
+                      <th className="border p-2">Time</th>
+                      <th className="border p-2">Location</th>
+                      <th className="border p-2">Lecturer</th>
+                      <th className="border p-2">Course</th>
+                      <th className="border p-2">Students</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {classes.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center p-4">
+                          No classes found.
+                        </td>
+                      </tr>
+                    ) : (
+                      classes.map((cls) => (
+                        <tr key={cls.id}>
+                          <td className="border p-2">{cls.module}</td>
+                          <td className="border p-2">{formatTime(cls.time)}</td>
+                          <td className="border p-2">{cls.location}</td>
+                          <td className="border p-2">
+                            {lecturerMap[cls.lecturer] || cls.lecturer}
+                          </td>
+                          <td className="border p-2">{cls.course}</td>
+                          <td className="border p-2">
+                            {(cls.students || [])
+                              .map((studId) => studentMap[studId] || studId)
+                              .join(", ")}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
       </div>
 
-      {/* Render editing modal only for lecturers now */}
       {editingItem && editingType === "lecturer" && (
         <EditLecturer
           lecturer={editingItem}

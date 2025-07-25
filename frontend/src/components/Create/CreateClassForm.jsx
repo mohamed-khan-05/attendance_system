@@ -1,0 +1,209 @@
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+
+const CreateClassForm = ({ onClassCreated }) => {
+  const [formData, setFormData] = useState({
+    module: "",
+    time: "",
+    location: "",
+    lecturer: "",
+    course: "",
+    students: [],
+  });
+
+  const [modules, setModules] = useState([]);
+  const [lecturers, setLecturers] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [filteredStudents, setFilteredStudents] = useState([]);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [errors, setErrors] = useState({});
+
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [modRes, lecRes, stuRes] = await Promise.all([
+          axios.get(`${BACKEND_URL}/modules`),
+          axios.get(`${BACKEND_URL}/users/lecturers`),
+          axios.get(`${BACKEND_URL}/users/students`),
+        ]);
+        setModules(modRes.data);
+        setLecturers(lecRes.data);
+        setStudents(stuRes.data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+    fetchData();
+  }, [BACKEND_URL]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: null }));
+  };
+
+  const handleModuleChange = (e) => {
+    const selectedModule = e.target.value;
+    const eligibleStudents = students.filter((s) =>
+      (s.modules || []).includes(selectedModule)
+    );
+    setFilteredStudents(eligibleStudents);
+    setFormData((prev) => ({ ...prev, module: selectedModule, students: [] }));
+    setStudentSearch("");
+    setErrors((prev) => ({ ...prev, module: null }));
+  };
+
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.module) newErrors.module = "Please select a Module";
+    if (!formData.time) newErrors.time = "Please select Time";
+    if (!formData.location.trim())
+      newErrors.location = "Please fill in Location";
+    if (!formData.lecturer) newErrors.lecturer = "Please select Lecturer";
+    if (!formData.course.trim()) newErrors.course = "Please fill in Course";
+    return newErrors;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    try {
+      await axios.post(`${BACKEND_URL}/class`, formData);
+      onClassCreated?.();
+      setFormData({
+        module: "",
+        time: "",
+        location: "",
+        lecturer: "",
+        course: "",
+        students: [],
+      });
+      setStudentSearch("");
+      setFilteredStudents([]);
+      setErrors({});
+    } catch (err) {
+      console.error("Failed to create class:", err);
+    }
+  };
+
+  const ErrorText = ({ message }) => (
+    <div className="text-red-600 text-sm mb-1">{message}</div>
+  );
+
+  return (
+    <form className="space-y-4" onSubmit={handleSubmit}>
+      {errors.module && <ErrorText message={errors.module} />}
+      <select
+        name="module"
+        value={formData.module}
+        onChange={handleModuleChange}
+        className="input w-full border rounded px-3 py-2"
+      >
+        <option value="">Select Module</option>
+        {modules.map((mod) => (
+          <option key={mod.code} value={mod.code}>
+            {mod.name} ({mod.code})
+          </option>
+        ))}
+      </select>
+
+      {errors.time && <ErrorText message={errors.time} />}
+      <input
+        type="time"
+        name="time"
+        value={formData.time}
+        onChange={handleChange}
+        className="input w-full border rounded px-3 py-2"
+      />
+
+      {errors.location && <ErrorText message={errors.location} />}
+      <input
+        type="text"
+        name="location"
+        placeholder="Class Location"
+        value={formData.location}
+        onChange={handleChange}
+        className="input w-full border rounded px-3 py-2"
+      />
+
+      {errors.lecturer && <ErrorText message={errors.lecturer} />}
+      <select
+        name="lecturer"
+        value={formData.lecturer}
+        onChange={handleChange}
+        className="input w-full border rounded px-3 py-2"
+      >
+        <option value="">Select Lecturer</option>
+        {lecturers.map((lec) => (
+          <option key={lec.id} value={lec.id}>
+            {lec.name}
+          </option>
+        ))}
+      </select>
+
+      {errors.course && <ErrorText message={errors.course} />}
+      <input
+        type="text"
+        name="course"
+        placeholder="Course"
+        value={formData.course}
+        onChange={handleChange}
+        className="input w-full border rounded px-3 py-2"
+      />
+
+      <label className="block font-semibold">Select Students</label>
+
+      <input
+        type="text"
+        placeholder="Search students..."
+        value={studentSearch}
+        onChange={(e) => setStudentSearch(e.target.value)}
+        className="input w-full border rounded px-3 py-2 mb-2"
+      />
+
+      <div className="max-h-40 overflow-y-auto border rounded p-2">
+        {filteredStudents
+          .filter((stu) =>
+            `${stu.name} ${stu.studentNumber}`
+              .toLowerCase()
+              .includes(studentSearch.toLowerCase())
+          )
+          .map((stu) => (
+            <label key={stu.id} className="block cursor-pointer select-none">
+              <input
+                type="checkbox"
+                value={stu.id}
+                checked={formData.students.includes(stu.id)}
+                onChange={(e) => {
+                  const selected = [...formData.students];
+                  if (e.target.checked) selected.push(stu.id);
+                  else selected.splice(selected.indexOf(stu.id), 1);
+                  setFormData((prev) => ({ ...prev, students: selected }));
+                }}
+              />
+              <span className="ml-2">
+                {stu.name} ({stu.studentNumber})
+              </span>
+            </label>
+          ))}
+      </div>
+
+      <button
+        type="submit"
+        className="btn btn-primary px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+      >
+        Create Class
+      </button>
+    </form>
+  );
+};
+
+export default CreateClassForm;
