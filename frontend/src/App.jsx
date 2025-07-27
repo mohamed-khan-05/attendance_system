@@ -20,7 +20,7 @@ const App = () => {
           <Route path="/" element={<Login />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/lecturer" element={<Dashboard />} />
-          <Route path="/check" element={<IdentifyUser />} />
+          <Route path="/identify" element={<IdentifyUser />} />
         </Routes>
       </Router>
     </UserContext.Provider>

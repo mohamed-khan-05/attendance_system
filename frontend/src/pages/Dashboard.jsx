@@ -10,9 +10,8 @@ const Dashboard = () => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   const [assignedClasses, setAssignedClasses] = useState([]);
-  const [editingClass, setEditingClass] = useState(null); // object with class info or null
+  const [editingClass, setEditingClass] = useState(null);
 
-  // Fetch user session
   useEffect(() => {
     if (!user) {
       axios
@@ -22,12 +21,30 @@ const Dashboard = () => {
     }
   }, [user, setUser, navigate]);
 
-  // Fetch lecturer's assigned classes
   useEffect(() => {
     if (user?.type === "lecturer") {
       axios
         .get(`${BACKEND_URL}/class/lecturer/${user.id}`)
-        .then((res) => setAssignedClasses(res.data))
+        .then((res) => {
+          const now = Math.floor(Date.now() / 1000);
+          const sorted = res.data.sort((a, b) => {
+            const aActive = now >= a.startTime && now <= a.endTime;
+            const bActive = now >= b.startTime && now <= b.endTime;
+
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
+
+            const aPast = now > a.endTime;
+            const bPast = now > b.endTime;
+
+            if (!aPast && bPast) return -1;
+            if (aPast && !bPast) return 1;
+
+            return a.startTime - b.startTime;
+          });
+
+          setAssignedClasses(sorted);
+        })
         .catch((err) => console.error("Failed to fetch classes", err));
     }
   }, [user]);
@@ -47,15 +64,8 @@ const Dashboard = () => {
     }
   };
 
-  // Open EditTime card with class info
-  const openEditTimeCard = (cls) => {
-    setEditingClass(cls);
-  };
-
-  // Close EditTime card
-  const closeEditTimeCard = () => {
-    setEditingClass(null);
-  };
+  const openEditTimeCard = (cls) => setEditingClass(cls);
+  const closeEditTimeCard = () => setEditingClass(null);
 
   const saveNewTime = async ({ startTime, endTime }) => {
     try {
@@ -72,6 +82,11 @@ const Dashboard = () => {
       console.error("Failed to update time", err);
       alert("Failed to update time");
     }
+  };
+
+  const isClassActive = (cls) => {
+    const now = Math.floor(Date.now() / 1000);
+    return now >= cls.startTime && now <= cls.endTime;
   };
 
   return (
@@ -93,27 +108,50 @@ const Dashboard = () => {
           ) : (
             <ul className="space-y-3">
               {assignedClasses.map((cls) => (
-                <li key={cls.id}>
-                  <strong>{cls.module}</strong> | Time:{" "}
-                  {cls.startTime && cls.endTime
-                    ? `${new Date(cls.startTime * 1000).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })} - ${new Date(cls.endTime * 1000).toLocaleTimeString(
-                        [],
-                        {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }
-                      )}`
-                    : "N/A"}{" "}
-                  | Location: {cls.location}
-                  <button
-                    onClick={() => openEditTimeCard(cls)}
-                    style={{ marginLeft: "10px" }}
-                  >
-                    Edit Time
-                  </button>
+                <li
+                  key={cls.id}
+                  className="border p-3 rounded flex justify-between items-center bg-gray-50"
+                >
+                  <div>
+                    <strong>{cls.module}</strong> | Time:{" "}
+                    {cls.startTime && cls.endTime
+                      ? `${new Date(cls.startTime * 1000).toLocaleTimeString(
+                          [],
+                          { hour: "2-digit", minute: "2-digit" }
+                        )} - ${new Date(cls.endTime * 1000).toLocaleTimeString(
+                          [],
+                          { hour: "2-digit", minute: "2-digit" }
+                        )}`
+                      : "N/A"}{" "}
+                    | Location: {cls.location}
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <button
+                      className={`px-3 py-1 rounded ${
+                        isClassActive(cls)
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : "bg-gray-400 text-white cursor-not-allowed"
+                      }`}
+                      disabled={!isClassActive(cls)}
+                      onClick={() =>
+                        navigate("/identify", {
+                          state: {
+                            students: cls.students,
+                            classId: cls.id,
+                            module: cls.module,
+                          },
+                        })
+                      }
+                    >
+                      Take Attendance
+                    </button>
+                    <button
+                      className="px-3 py-1 border rounded hover:bg-gray-200"
+                      onClick={() => openEditTimeCard(cls)}
+                    >
+                      Edit Time
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -121,7 +159,6 @@ const Dashboard = () => {
         </>
       )}
 
-      {/* Render EditTime card popup if editingClass is set */}
       {editingClass && (
         <EditTime
           classData={editingClass}

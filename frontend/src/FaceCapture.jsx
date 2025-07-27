@@ -15,8 +15,7 @@ const FaceCapture = ({ onFaceData }) => {
         setLoading(false);
       } catch (err) {
         console.error("Error loading models:", err);
-        setLoading(true);
-        alert("Failed to load models. See console for details.");
+        setStreamError("Failed to load models.");
       }
     };
 
@@ -25,17 +24,8 @@ const FaceCapture = ({ onFaceData }) => {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
         });
-
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-
-          // Make sure video plays
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current.play().catch((err) => {
-              console.error("Play error:", err);
-              setStreamError("Could not play video");
-            });
-          };
         }
       } catch (err) {
         console.error("Webcam error:", err);
@@ -52,21 +42,29 @@ const FaceCapture = ({ onFaceData }) => {
     };
   }, []);
 
-  const captureFaceData = async () => {
-    if (!videoRef.current) return;
+  useEffect(() => {
+    let interval;
+    const detect = async () => {
+      if (!videoRef.current) return;
+      const detection = await faceapi
+        .detectSingleFace(
+          videoRef.current,
+          new faceapi.TinyFaceDetectorOptions()
+        )
+        .withFaceLandmarks()
+        .withFaceDescriptor();
 
-    const detection = await faceapi
-      .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
-      .withFaceLandmarks()
-      .withFaceDescriptor();
+      if (detection && onFaceData) {
+        onFaceData(Array.from(detection.descriptor));
+      }
+    };
 
-    if (!detection) {
-      alert("No face detected. Please try again.");
-      return;
+    if (!loading && !streamError) {
+      interval = setInterval(detect, 2000); // auto detect every 2 seconds
     }
 
-    onFaceData(Array.from(detection.descriptor));
-  };
+    return () => clearInterval(interval);
+  }, [loading, streamError, onFaceData]);
 
   return (
     <div className="space-y-2">
@@ -75,29 +73,16 @@ const FaceCapture = ({ onFaceData }) => {
       ) : streamError ? (
         <p className="text-red-600">{streamError}</p>
       ) : (
-        <>
-          <video
-            ref={videoRef}
-            width="320"
-            height="240"
-            muted
-            autoPlay
-            playsInline
-            style={{
-              borderRadius: "8px",
-              backgroundColor: "#000",
-              display: "block",
-            }}
-            onError={() => setStreamError("Video failed to load")}
-          />
-          <button
-            type="button"
-            onClick={captureFaceData}
-            className="btn bg-green-600 text-white mt-2"
-          >
-            Capture Face
-          </button>
-        </>
+        <video
+          ref={videoRef}
+          width="320"
+          height="240"
+          muted
+          autoPlay
+          playsInline
+          className="rounded border"
+          style={{ backgroundColor: "#000" }}
+        />
       )}
     </div>
   );

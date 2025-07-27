@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import FaceCapture from "../FaceCapture"; // import FaceCapture component
+import FaceCapture from "../../FaceCapture"; // import FaceCapture component
 
 const CreateStudentForm = ({ onSubmit, modules }) => {
   const [formData, setFormData] = useState({

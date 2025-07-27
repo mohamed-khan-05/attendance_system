@@ -39,6 +39,8 @@ const modulesRouter = require("./routes/modulesRoute")(db);
 app.use("/modules", modulesRouter);
 const classRouter = require("./routes/classRoute")(db);
 app.use("/class", classRouter);
+const attendanceRouter = require("./routes/attendanceRoute")(db);
+app.use("/attendance", attendanceRouter);
 
 app.listen(3001, () => {
   console.log("Server running on PORT 3001");

@@ -2,9 +2,9 @@ import React, { useState, useEffect, useContext } from "react";
 import { UserContext } from "../App";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import CreateCard from "../components/CreateCard";
+import CreateCard from "../components/Create/CreateCard";
 import EditLecturer from "../components/EditCards/EditLecturer";
-import CreateStudentForm from "../components/CreateStudentForm";
+import CreateStudentForm from "../components/Create/CreateStudentForm";
 import CreateClassForm from "../components/Create/CreateClassForm";
 import EditClass from "../components/EditCards/EditClass";
 

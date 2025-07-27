@@ -60,6 +60,7 @@ module.exports = (db) => {
         lecturer,
         course,
         students,
+        studentsCount: students.length || 0,
       };
 
       const docRef = await classCollection.add(newClass);
@@ -106,7 +107,10 @@ module.exports = (db) => {
       if (location) updateData.location = location;
       if (lecturer) updateData.lecturer = lecturer;
       if (course) updateData.course = course;
-      if (students) updateData.students = students;
+      if (students) {
+        updateData.students = students;
+        updateData.studentsCount = students.length; // <== update count here
+      }
 
       await classRef.update(updateData);
       res.json({ message: "Class updated successfully" });
