@@ -98,6 +98,7 @@ module.exports = (db) => {
     }
   });
 
+  // Update lecturer info
   router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const { name, email, oldPassword, newPassword, type } = req.body;

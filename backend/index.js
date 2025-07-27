@@ -31,6 +31,8 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+const authRouter = require("./routes/authRoute")(db);
+app.use("/auth", authRouter);
 const usersRouter = require("./routes/usersRoute")(db);
 app.use("/users", usersRouter);
 const modulesRouter = require("./routes/modulesRoute")(db);

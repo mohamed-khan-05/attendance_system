@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
+import { UserContext } from "../App";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import CreateCard from "../components/CreateCard";
 import EditLecturer from "../components/EditCards/EditLecturer";
 import CreateStudentForm from "../components/CreateStudentForm";
 import CreateClassForm from "../components/Create/CreateClassForm";
+import EditClass from "../components/EditCards/EditClass";
 
 const Admin = () => {
+  const { user, setUser } = useContext(UserContext);
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("modules");
   const [showStudentForm, setShowStudentForm] = useState(false);
   const [showClassForm, setShowClassForm] = useState(false);
@@ -19,6 +25,7 @@ const Admin = () => {
 
   const [editingItem, setEditingItem] = useState(null);
   const [editingType, setEditingType] = useState(null);
+  const [editingClass, setEditingClass] = useState(null);
 
   const moduleFields = [
     { name: "code", placeholder: "Module Code" },
@@ -155,14 +162,33 @@ const Admin = () => {
 
   const formatTime = (time) => {
     if (!time) return "";
-    if (time.seconds) return new Date(time.seconds * 1000).toLocaleString();
-    return new Date(time).toLocaleString();
+    if (typeof time === "number") {
+      return new Date(time * 1000).toLocaleString();
+    }
+    const parsed = new Date(time);
+    return isNaN(parsed.getTime()) ? "Invalid Date" : parsed.toLocaleString();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post(
+        `${BACKEND_URL}/auth/logout`,
+        {},
+        { withCredentials: true }
+      );
+      setUser(null);
+      navigate("/");
+    } catch (err) {
+      console.error("Logout error:", err);
+      alert("Logout failed");
+    }
   };
 
   const tabs = ["modules", "students", "lecturers", "class", "timetable"];
 
   return (
     <div className="p-6">
+      <button onClick={handleLogout}>Logout</button>
       <div className="flex gap-4 mb-6 border-b pb-2">
         {tabs.map((tab) => (
           <button
@@ -178,10 +204,10 @@ const Admin = () => {
       </div>
 
       <div className="space-y-10">
+        {/* Modules */}
         {activeTab === "modules" && (
           <div>
             <h2 className="text-xl font-bold mb-4">Modules</h2>
-
             <CreateCard
               title="Module"
               fields={moduleFields}
@@ -192,7 +218,6 @@ const Admin = () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(data),
                   });
-
                   const result = await res.json();
                   if (res.ok) {
                     setModules((prev) => [...prev, result]);
@@ -205,7 +230,6 @@ const Admin = () => {
                 }
               }}
             />
-
             <table className="w-full mt-6 table-auto border">
               <thead className="bg-gray-100">
                 <tr>
@@ -234,6 +258,7 @@ const Admin = () => {
           </div>
         )}
 
+        {/* Students */}
         {activeTab === "students" && (
           <div>
             <h2 className="text-xl font-bold mb-4">Students</h2>
@@ -243,7 +268,6 @@ const Admin = () => {
             >
               {showStudentForm ? "Cancel" : "Create Student"}
             </button>
-
             {showStudentForm && (
               <CreateStudentForm
                 onSubmit={(data) => {
@@ -253,7 +277,6 @@ const Admin = () => {
                 modules={modules}
               />
             )}
-
             <table className="w-full mt-6 table-auto border">
               <thead className="bg-gray-100">
                 <tr>
@@ -286,16 +309,15 @@ const Admin = () => {
           </div>
         )}
 
+        {/* Lecturers */}
         {activeTab === "lecturers" && (
           <div>
             <h2 className="text-xl font-bold mb-4">Lecturers</h2>
-
             <CreateCard
               title="Lecturer"
               fields={lecturerCreateFields}
               onSubmit={(data) => createUser({ ...data, type: "lecturer" })}
             />
-
             <table className="w-full mt-6 table-auto border">
               <thead className="bg-gray-100">
                 <tr>
@@ -324,28 +346,15 @@ const Admin = () => {
           </div>
         )}
 
-        {activeTab === "timetable" && (
-          <div>
-            <h2 className="text-xl font-bold mb-4">Timetable</h2>
-            <CreateCard
-              title="Timetable"
-              fields={timetableFields}
-              onSubmit={(data) => setTimetable([...timetable, data])}
-            />
-          </div>
-        )}
-
+        {/* Class */}
         {activeTab === "class" &&
           (() => {
-            const lecturerMap = {};
-            lecturers.forEach((l) => {
-              lecturerMap[l.id] = l.name;
-            });
-
-            const studentMap = {};
-            students.forEach((s) => {
-              studentMap[s.id] = s.name;
-            });
+            const lecturerMap = Object.fromEntries(
+              lecturers.map((l) => [l.id, l.name])
+            );
+            const studentMap = Object.fromEntries(
+              students.map((s) => [s.id, s.name])
+            );
 
             return (
               <div>
@@ -356,11 +365,9 @@ const Admin = () => {
                 >
                   {showClassForm ? "Cancel" : "Add Class"}
                 </button>
-
                 {showClassForm && (
                   <CreateClassForm onClassCreated={onClassCreated} />
                 )}
-
                 <table className="w-full mt-6 table-auto border">
                   <thead className="bg-gray-100">
                     <tr>
@@ -370,6 +377,7 @@ const Admin = () => {
                       <th className="border p-2">Lecturer</th>
                       <th className="border p-2">Course</th>
                       <th className="border p-2">Students</th>
+                      <th className="border p-2">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -391,8 +399,16 @@ const Admin = () => {
                           <td className="border p-2">{cls.course}</td>
                           <td className="border p-2">
                             {(cls.students || [])
-                              .map((studId) => studentMap[studId] || studId)
+                              .map((sid) => studentMap[sid] || sid)
                               .join(", ")}
+                          </td>
+                          <td className="border p-2">
+                            <button
+                              className="btn bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
+                              onClick={() => setEditingClass(cls)}
+                            >
+                              Edit
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -403,6 +419,20 @@ const Admin = () => {
             );
           })()}
       </div>
+
+      {/* Modals */}
+      {editingClass && (
+        <EditClass
+          classData={editingClass}
+          onCancel={() => setEditingClass(null)}
+          onSave={() => {
+            fetchClasses();
+            setEditingClass(null);
+          }}
+          students={students}
+          lecturers={lecturers}
+        />
+      )}
 
       {editingItem && editingType === "lecturer" && (
         <EditLecturer
