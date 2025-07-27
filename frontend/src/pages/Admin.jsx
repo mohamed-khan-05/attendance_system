@@ -391,7 +391,22 @@ const Admin = () => {
                       classes.map((cls) => (
                         <tr key={cls.id}>
                           <td className="border p-2">{cls.module}</td>
-                          <td className="border p-2">{formatTime(cls.time)}</td>
+                          <td className="border p-2">
+                            {cls.startTime && cls.endTime
+                              ? `${new Date(
+                                  cls.startTime * 1000
+                                ).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })} - ${new Date(
+                                  cls.endTime * 1000
+                                ).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}`
+                              : ""}
+                          </td>
+
                           <td className="border p-2">{cls.location}</td>
                           <td className="border p-2">
                             {lecturerMap[cls.lecturer] || cls.lecturer}

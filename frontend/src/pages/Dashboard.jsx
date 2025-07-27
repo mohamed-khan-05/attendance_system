@@ -57,13 +57,12 @@ const Dashboard = () => {
     setEditingClass(null);
   };
 
-  // Save new time from EditTime card
-  const saveNewTime = async (newTime) => {
+  const saveNewTime = async ({ startTime, endTime }) => {
     try {
       await axios.put(`${BACKEND_URL}/class/${editingClass.id}`, {
-        time: newTime,
+        startTime,
+        endTime,
       });
-      // Refresh classes
       const updated = await axios.get(
         `${BACKEND_URL}/class/lecturer/${user.id}`
       );
@@ -94,21 +93,24 @@ const Dashboard = () => {
           ) : (
             <ul className="space-y-3">
               {assignedClasses.map((cls) => (
-                <li
-                  key={cls.id}
-                  className="border p-3 rounded flex items-center justify-between"
-                >
-                  <div>
-                    <strong>{cls.module}</strong> | Time:{" "}
-                    {new Date(cls.time * 1000).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    | Location: {cls.location}
-                  </div>
+                <li key={cls.id}>
+                  <strong>{cls.module}</strong> | Time:{" "}
+                  {cls.startTime && cls.endTime
+                    ? `${new Date(cls.startTime * 1000).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })} - ${new Date(cls.endTime * 1000).toLocaleTimeString(
+                        [],
+                        {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }
+                      )}`
+                    : "N/A"}{" "}
+                  | Location: {cls.location}
                   <button
                     onClick={() => openEditTimeCard(cls)}
-                    className="ml-4 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    style={{ marginLeft: "10px" }}
                   >
                     Edit Time
                   </button>

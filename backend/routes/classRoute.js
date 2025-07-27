@@ -21,29 +21,41 @@ module.exports = (db) => {
   });
 
   // Create a new class
+  // Create a new class
   router.post("/", async (req, res) => {
     const {
       module,
-      time,
+      startTime,
+      endTime,
       location,
       lecturer,
       course,
       students = [],
     } = req.body;
 
-    if (!module || !time || !location || !lecturer || !course) {
+    if (
+      !module ||
+      !startTime ||
+      !endTime ||
+      !location ||
+      !lecturer ||
+      !course
+    ) {
       return res.status(400).json({ error: "Missing required class fields" });
     }
 
     try {
-      const [hour, minute] = time.split(":").map(Number);
-      const now = new Date();
-      now.setHours(hour || 0, minute || 0, 0, 0);
-      const unixTimestamp = Math.floor(now.getTime() / 1000);
+      const parseTimeToUnix = (timeStr) => {
+        const [hour, minute] = timeStr.split(":").map(Number);
+        const now = new Date();
+        now.setHours(hour || 0, minute || 0, 0, 0);
+        return Math.floor(now.getTime() / 1000);
+      };
 
       const newClass = {
         module,
-        time: unixTimestamp,
+        startTime: parseTimeToUnix(startTime),
+        endTime: parseTimeToUnix(endTime),
         location,
         lecturer,
         course,
@@ -64,7 +76,8 @@ module.exports = (db) => {
   // Update class
   router.put("/:classId", async (req, res) => {
     const { classId } = req.params;
-    const { time, location, lecturer, course, students } = req.body;
+    const { startTime, endTime, location, lecturer, course, students } =
+      req.body;
 
     try {
       const classRef = classCollection.doc(classId);
@@ -81,13 +94,15 @@ module.exports = (db) => {
         return res.status(400).json({ error: "Module cannot be changed" });
       }
 
-      if (time) {
-        const [hour, minute] = time.split(":").map(Number);
+      const parseTimeToUnix = (timeStr) => {
+        const [hour, minute] = timeStr.split(":").map(Number);
         const now = new Date();
         now.setHours(hour || 0, minute || 0, 0, 0);
-        updateData.time = Math.floor(now.getTime() / 1000);
-      }
+        return Math.floor(now.getTime() / 1000);
+      };
 
+      if (startTime) updateData.startTime = parseTimeToUnix(startTime);
+      if (endTime) updateData.endTime = parseTimeToUnix(endTime);
       if (location) updateData.location = location;
       if (lecturer) updateData.lecturer = lecturer;
       if (course) updateData.course = course;

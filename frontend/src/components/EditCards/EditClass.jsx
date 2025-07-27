@@ -9,20 +9,21 @@ const EditClass = ({
   onCancel,
   onSave,
 }) => {
-  // Correctly format time from UNIX timestamp to HH:MM (local time)
-  const formattedTime = new Date(classData.time * 1000).toLocaleTimeString(
-    "en-GB",
-    { hour: "2-digit", minute: "2-digit" }
-  );
+  // Convert UNIX timestamp to HH:MM
+  const toTimeString = (unix) =>
+    new Date(unix * 1000).toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   const [formData, setFormData] = useState({
     ...classData,
-    time: formattedTime,
+    startTime: toTimeString(classData.startTime),
+    endTime: toTimeString(classData.endTime),
     students: classData.students || [],
   });
 
   const [searchTerm, setSearchTerm] = useState("");
-
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   const handleChange = (e) => {
@@ -48,7 +49,6 @@ const EditClass = ({
     try {
       await axios.put(`${BACKEND_URL}/class/${classData.id}`, {
         ...formData,
-        time: formData.time,
       });
       onSave();
     } catch (error) {
@@ -57,13 +57,11 @@ const EditClass = ({
     }
   };
 
-  // Sort students: ticked (already assigned) first
   const sortedStudents = [
     ...students.filter((s) => formData.students.includes(s.id)),
     ...students.filter((s) => !formData.students.includes(s.id)),
   ];
 
-  // Filter by search term (case-insensitive)
   const filteredStudents = sortedStudents.filter((stud) =>
     stud.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -82,16 +80,29 @@ const EditClass = ({
           />
         </div>
 
-        <div>
-          <label className="block font-medium">Time</label>
-          <input
-            type="time"
-            name="time"
-            value={formData.time}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            required
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-medium">Start Time</label>
+            <input
+              type="time"
+              name="startTime"
+              value={formData.startTime}
+              onChange={handleChange}
+              className="w-full p-2 border rounded"
+              required
+            />
+          </div>
+          <div>
+            <label className="block font-medium">End Time</label>
+            <input
+              type="time"
+              name="endTime"
+              value={formData.endTime}
+              onChange={handleChange}
+              className="w-full p-2 border rounded"
+              required
+            />
+          </div>
         </div>
 
         <div>
