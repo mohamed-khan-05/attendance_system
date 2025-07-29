@@ -1,4 +1,3 @@
-// routes/attendanceRoute.js
 const express = require("express");
 const router = express.Router();
 const dayjs = require("dayjs");
@@ -23,7 +22,6 @@ module.exports = (db) => {
         .get();
 
       if (snapshot.empty) {
-        // No record today → create new
         await attendanceCollection.add({
           classId,
           date: today,
@@ -52,6 +50,48 @@ module.exports = (db) => {
     } catch (err) {
       console.error("Error marking attendance:", err);
       return res.status(500).json({ error: "Internal error" });
+    }
+  });
+
+  router.get("/all", async (req, res) => {
+    try {
+      const snapshot = await db.collection("attendance").get();
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      res.json(data);
+    } catch (err) {
+      console.error("Error fetching attendance:", err);
+      res.status(500).json({ error: "Failed to fetch attendance" });
+    }
+  });
+
+  router.post("/by-class-ids", async (req, res) => {
+    const { classIds } = req.body;
+
+    if (!Array.isArray(classIds) || classIds.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "classIds must be a non-empty array" });
+    }
+
+    try {
+      const results = [];
+
+      for (let i = 0; i < classIds.length; i += 10) {
+        const batch = classIds.slice(i, i + 10);
+        const snapshot = await attendanceCollection
+          .where("classId", "in", batch)
+          .get();
+
+        snapshot.forEach((doc) => results.push({ id: doc.id, ...doc.data() }));
+      }
+
+      res.json(results);
+    } catch (err) {
+      console.error("Error fetching filtered attendance:", err);
+      res.status(500).json({ error: "Failed to fetch filtered attendance" });
     }
   });
 

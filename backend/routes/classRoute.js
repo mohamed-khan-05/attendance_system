@@ -120,6 +120,27 @@ module.exports = (db) => {
     }
   });
 
+  // Get attendance by class ID
+  router.get("/class/:classId", async (req, res) => {
+    try {
+      const snapshot = await db
+        .collection("attendance")
+        .where("classId", "==", req.params.classId)
+        .limit(1)
+        .get();
+
+      const attendance = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      res.json(attendance);
+    } catch (err) {
+      console.error("Error fetching attendance:", err);
+      res.status(500).json({ error: "Failed to fetch attendance" });
+    }
+  });
+
   // Get classes assigned to a specific lecturer
   router.get("/lecturer/:lecturerId", async (req, res) => {
     try {

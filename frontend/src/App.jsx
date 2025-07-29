@@ -6,6 +6,7 @@ import Admin from "./pages/Admin";
 import IdentifyUser from "./pages/IdentifyUser.JSX";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import PastClasses from "./pages/PastClasses";
 
 // Create and export context
 export const UserContext = createContext();
@@ -21,6 +22,7 @@ const App = () => {
           <Route path="/admin" element={<Admin />} />
           <Route path="/lecturer" element={<Dashboard />} />
           <Route path="/identify" element={<IdentifyUser />} />
+          <Route path="/pastclass" element={<PastClasses />} />
         </Routes>
       </Router>
     </UserContext.Provider>

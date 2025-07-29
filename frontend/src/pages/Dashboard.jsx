@@ -103,6 +103,12 @@ const Dashboard = () => {
       {user?.type === "lecturer" && (
         <>
           <h2 className="text-xl font-semibold mb-2">Your Assigned Classes</h2>
+          <button
+            onClick={() => navigate("/pastclass")}
+            className="mb-4 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+          >
+            View Past Classes
+          </button>
           {assignedClasses.length === 0 ? (
             <p>No assigned classes.</p>
           ) : (
