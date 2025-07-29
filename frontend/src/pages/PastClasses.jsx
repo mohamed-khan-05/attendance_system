@@ -7,85 +7,108 @@ const PastClasses = () => {
   const [selectedClass, setSelectedClass] = useState(null);
   const [students, setStudents] = useState([]);
   const [attended, setAttended] = useState([]);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("attended"); // default filter to 'attended'
   const [classMap, setClassMap] = useState({});
   const [moduleFilter, setModuleFilter] = useState("all");
+  const [studentSearch, setStudentSearch] = useState(""); // NEW: search text
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
-    const fetchPastAttendance = async () => {
+    const fetchData = async () => {
       try {
-        const classRes = await axios.get(`${BACKEND_URL}/class`);
         const now = dayjs();
+        const todayStr = now.format("YYYY-MM-DD");
 
-        const classes = {};
-        const pastClassIds = [];
+        // Fetch all classes
+        const { data: classes } = await axios.get(`${BACKEND_URL}/class`);
+        const map = Object.fromEntries(classes.map((c) => [c.id, c]));
+        setClassMap(map);
 
-        classRes.data.forEach((cls) => {
-          const endTime = dayjs.unix(cls.endTime);
-          const startTime = dayjs.unix(cls.startTime);
-          if (endTime.isBefore(now)) {
-            classes[cls.id] = cls;
-            pastClassIds.push(cls.id);
-          }
-        });
+        const classIds = Object.keys(map);
+        if (classIds.length === 0) return;
 
-        setClassMap(classes);
-
-        if (pastClassIds.length === 0) {
-          setAttendanceRecords([]);
-          return;
-        }
-
-        const attendanceRes = await axios.post(
+        // Fetch attendance records by class IDs
+        const { data: rawRecords } = await axios.post(
           `${BACKEND_URL}/attendance/by-class-ids`,
-          { classIds: pastClassIds }
+          { classIds }
         );
 
-        setAttendanceRecords(attendanceRes.data);
+        // Filter out today's ongoing attendance
+        const filtered = rawRecords.filter((rec) => {
+          const cls = map[rec.classId];
+          if (!cls) return false;
+
+          const isToday = rec.date === todayStr;
+
+          if (isToday) {
+            const nowUnix = now.unix();
+            if (nowUnix >= cls.startTime && nowUnix <= cls.endTime) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+        setAttendanceRecords(filtered);
       } catch (err) {
-        console.error("Failed to fetch past attendance", err);
+        console.error("Failed to fetch attendance", err);
       }
     };
 
-    fetchPastAttendance();
+    fetchData();
   }, []);
 
-  const viewAttendance = async (record) => {
-    const classData = classMap[record.classId];
-    setSelectedClass({ ...record, ...classData });
+  const viewAttendance = async (rec) => {
+    const cls = classMap[rec.classId];
+    if (!cls) return;
+
+    const dateFormatted = dayjs(rec.date).format("DD MMM YYYY");
+    setSelectedClass({ ...rec, ...cls, date: dateFormatted });
 
     try {
-      const studentsRes = await axios.get(`${BACKEND_URL}/users/students`);
-      setStudents(studentsRes.data);
-      setAttended(record.studentsPresent || []);
+      const { data } = await axios.get(`${BACKEND_URL}/users/students`);
+      setStudents(data);
+      setAttended(rec.studentsPresent || []);
+      setFilter("attended"); // Reset filter on new attendance view
+      setStudentSearch(""); // Reset search input when new attendance loaded
     } catch (err) {
-      console.error("Error loading attendance", err);
+      console.error("Failed to fetch students", err);
     }
   };
 
   const filteredStudents = () => {
+    let filtered = [];
     if (filter === "attended") {
-      return students.filter((s) => attended.includes(s.id));
+      filtered = students.filter((s) => attended.includes(s.id));
     } else if (filter === "notAttended") {
-      return students.filter((s) => !attended.includes(s.id));
+      filtered = students.filter((s) => !attended.includes(s.id));
+    } else {
+      filtered = students;
     }
-    return students;
+
+    if (studentSearch.trim() === "") return filtered;
+
+    const searchLower = studentSearch.toLowerCase();
+    return filtered.filter(
+      (s) =>
+        s.name.toLowerCase().includes(searchLower) ||
+        s.studentNumber.toLowerCase().includes(searchLower)
+    );
   };
 
-  const groupedByModule = {};
-  attendanceRecords.forEach((record) => {
-    const cls = classMap[record.classId];
+  // Group attendance records by module for display
+  const grouped = {};
+  attendanceRecords.forEach((rec) => {
+    const cls = classMap[rec.classId];
     if (!cls) return;
     if (moduleFilter !== "all" && cls.module !== moduleFilter) return;
 
-    if (!groupedByModule[cls.module]) {
-      groupedByModule[cls.module] = [];
-    }
-    groupedByModule[cls.module].push({ ...record, ...cls });
+    if (!grouped[cls.module]) grouped[cls.module] = [];
+    grouped[cls.module].push({ ...rec, ...cls });
   });
 
+  // Get unique modules for module filter dropdown
   const uniqueModules = Array.from(
     new Set(
       attendanceRecords.map((r) => classMap[r.classId]?.module).filter(Boolean)
@@ -112,32 +135,30 @@ const PastClasses = () => {
         </select>
       </div>
 
-      {Object.keys(groupedByModule).length === 0 ? (
+      {Object.keys(grouped).length === 0 ? (
         <p>No past classes found.</p>
       ) : (
-        Object.entries(groupedByModule).map(([moduleCode, records]) => (
-          <div key={moduleCode} className="mb-6">
-            <h3 className="text-lg font-semibold border-b pb-1">
-              {moduleCode}
-            </h3>
+        Object.entries(grouped).map(([mod, records]) => (
+          <div key={mod} className="mb-6">
+            <h3 className="text-lg font-semibold border-b pb-1">{mod}</h3>
             <ul className="mt-2 space-y-2">
-              {records.map((record) => (
+              {records.map((rec) => (
                 <li
-                  key={record.id}
+                  key={`${rec.classId}-${rec.date}`}
                   className="border p-3 rounded shadow-sm flex justify-between items-center"
                 >
                   <div>
                     <div className="font-medium">
-                      {dayjs.unix(record.startTime).format("DD MMM YYYY")}
+                      {dayjs(rec.date).format("DD MMM YYYY")}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {dayjs.unix(record.startTime).format("HH:mm")} -{" "}
-                      {dayjs.unix(record.endTime).format("HH:mm")} |{" "}
-                      {record.count} attended
+                      {dayjs.unix(rec.startTime).format("HH:mm")} -{" "}
+                      {dayjs.unix(rec.endTime).format("HH:mm")} |{" "}
+                      {rec.count ?? 0} attended
                     </div>
                   </div>
                   <button
-                    onClick={() => viewAttendance(record)}
+                    onClick={() => viewAttendance(rec)}
                     className="bg-blue-600 text-white px-3 py-1 rounded"
                   >
                     View Attendance
@@ -179,10 +200,19 @@ const PastClasses = () => {
             ))}
           </div>
 
+          {/* Search input above students list */}
+          <input
+            type="text"
+            placeholder="Search students by name or number..."
+            className="border px-3 py-2 mb-3 w-full rounded"
+            value={studentSearch}
+            onChange={(e) => setStudentSearch(e.target.value)}
+          />
+
           {filteredStudents().length === 0 ? (
             <p className="text-gray-600">No students to display.</p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-1 max-h-96 overflow-auto">
               {filteredStudents().map((s) => (
                 <li key={s.id} className="border p-2 rounded">
                   {s.name} ({s.studentNumber})
@@ -197,3 +227,4 @@ const PastClasses = () => {
 };
 
 export default PastClasses;
+// works
