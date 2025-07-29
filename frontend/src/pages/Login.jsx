@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../App";
 import axios from "axios";
@@ -8,25 +8,14 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { setUser } = useContext(UserContext);
+  const { user, setUser } = useContext(UserContext);
   const navigate = useNavigate();
 
-  // Check session on mount
+  // If already logged in, redirect to appropriate dashboard
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const res = await axios.get(`${BACKEND_URL}/auth/session`, {
-          withCredentials: true,
-        });
-        setUser(res.data);
-        if (res.data.type === "admin") navigate("/admin");
-        else if (res.data.type === "lecturer") navigate("/lecturer");
-      } catch {
-        // No active session
-      }
-    };
-    checkSession();
-  }, [navigate, setUser]);
+    if (user?.type === "admin") navigate("/admin");
+    else if (user?.type === "lecturer") navigate("/lecturer");
+  }, [user, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -37,10 +26,11 @@ const Login = () => {
         { withCredentials: true }
       );
 
-      setUser(res.data.user);
+      const loggedInUser = res.data.user;
+      setUser(loggedInUser);
 
-      if (res.data.user.type === "admin") navigate("/admin");
-      else if (res.data.user.type === "lecturer") navigate("/lecturer");
+      if (loggedInUser.type === "admin") navigate("/admin");
+      else if (loggedInUser.type === "lecturer") navigate("/lecturer");
     } catch (err) {
       alert(err.response?.data?.error || "Login failed");
     }

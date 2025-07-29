@@ -1,17 +1,18 @@
 const express = require("express");
+const admin = require("firebase-admin"); // Needed for FieldPath.documentId()
 const router = express.Router();
 const dayjs = require("dayjs");
 
 module.exports = (db) => {
   const attendanceCollection = db.collection("attendance");
+  const classCollection = db.collection("class");
 
+  // Mark attendance
   router.post("/mark", async (req, res) => {
     const { classId, studentId } = req.body;
-
     if (!classId || !studentId) {
       return res.status(400).json({ error: "Missing classId or studentId" });
     }
-
     const today = dayjs().format("YYYY-MM-DD");
 
     try {
@@ -45,7 +46,6 @@ module.exports = (db) => {
           console.log("Student already marked");
         }
       }
-
       return res.json({ success: true });
     } catch (err) {
       console.error("Error marking attendance:", err);
@@ -53,9 +53,10 @@ module.exports = (db) => {
     }
   });
 
+  // Get all attendance (no filter)
   router.get("/all", async (req, res) => {
     try {
-      const snapshot = await db.collection("attendance").get();
+      const snapshot = await attendanceCollection.get();
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -67,6 +68,8 @@ module.exports = (db) => {
     }
   });
 
+  // Get attendance filtered by classIds and lecturerId
+  // routes/attendanceRoute.js
   router.post("/by-class-ids", async (req, res) => {
     const { classIds } = req.body;
 
@@ -78,7 +81,6 @@ module.exports = (db) => {
 
     try {
       const results = [];
-
       for (let i = 0; i < classIds.length; i += 10) {
         const batch = classIds.slice(i, i + 10);
         const snapshot = await attendanceCollection
@@ -88,10 +90,10 @@ module.exports = (db) => {
         snapshot.forEach((doc) => results.push({ id: doc.id, ...doc.data() }));
       }
 
-      res.json(results);
+      return res.json(results);
     } catch (err) {
-      console.error("Error fetching filtered attendance:", err);
-      res.status(500).json({ error: "Failed to fetch filtered attendance" });
+      console.error("Error fetching attendance:", err);
+      return res.status(500).json({ error: "Failed to fetch attendance" });
     }
   });
 

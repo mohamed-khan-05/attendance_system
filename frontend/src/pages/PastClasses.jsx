@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
+import { UserContext } from "../App";
 import axios from "axios";
 import dayjs from "dayjs";
 
@@ -12,35 +13,45 @@ const PastClasses = () => {
   const [moduleFilter, setModuleFilter] = useState("all");
   const [studentSearch, setStudentSearch] = useState(""); // NEW: search text
 
+  const { user, setUser } = useContext(UserContext);
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const now = dayjs();
-        const todayStr = now.format("YYYY-MM-DD");
+        const lecturerId = user.id;
+        if (!lecturerId) return;
 
-        // Fetch all classes
-        const { data: classes } = await axios.get(`${BACKEND_URL}/class`);
+        const { data: classes } = await axios.get(
+          `${BACKEND_URL}/class/lecturer/${lecturerId}`
+        );
+        if (!classes || classes.length === 0) {
+          setAttendanceRecords([]);
+          setClassMap({});
+          return;
+        }
+
         const map = Object.fromEntries(classes.map((c) => [c.id, c]));
         setClassMap(map);
 
-        const classIds = Object.keys(map);
-        if (classIds.length === 0) return;
-
-        // Fetch attendance records by class IDs
+        // 2. Fetch attendance records filtered by these classes and lecturer
+        const classIds = classes.map((c) => c.id);
         const { data: rawRecords } = await axios.post(
           `${BACKEND_URL}/attendance/by-class-ids`,
-          { classIds }
+          {
+            classIds,
+            lecturerId,
+          }
         );
 
-        // Filter out today's ongoing attendance
+        // filter out ongoing today attendance if needed, as your original code does
+        const now = dayjs();
+        const todayStr = now.format("YYYY-MM-DD");
         const filtered = rawRecords.filter((rec) => {
           const cls = map[rec.classId];
           if (!cls) return false;
 
           const isToday = rec.date === todayStr;
-
           if (isToday) {
             const nowUnix = now.unix();
             if (nowUnix >= cls.startTime && nowUnix <= cls.endTime) {
@@ -55,6 +66,7 @@ const PastClasses = () => {
         console.error("Failed to fetch attendance", err);
       }
     };
+    console.log(user.id);
 
     fetchData();
   }, []);
