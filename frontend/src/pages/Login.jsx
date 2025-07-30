@@ -11,7 +11,6 @@ const Login = () => {
   const { user, setUser } = useContext(UserContext);
   const navigate = useNavigate();
 
-  // If already logged in, redirect to appropriate dashboard
   useEffect(() => {
     if (user?.type === "admin") navigate("/admin");
     else if (user?.type === "lecturer") navigate("/lecturer");
@@ -25,7 +24,6 @@ const Login = () => {
         { email, password },
         { withCredentials: true }
       );
-
       const loggedInUser = res.data.user;
       setUser(loggedInUser);
 
@@ -37,34 +35,48 @@ const Login = () => {
   };
 
   return (
-    <div className="p-4 max-w-sm mx-auto">
-      <h2 className="text-xl mb-4">Login</h2>
-      <form onSubmit={handleLogin}>
-        <input
-          type="email"
-          placeholder="Email"
-          className="mb-2 w-full p-2 border"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          autoComplete="username"
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          className="mb-2 w-full p-2 border"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          autoComplete="current-password"
-        />
-        <button
-          className="bg-blue-500 text-white px-4 py-2 w-full"
-          type="submit"
-        >
-          Login
-        </button>
-      </form>
+    <div className="flex items-start justify-center min-h-screen bg-[#f5f7fa] pt-24 px-4">
+      <div className="bg-white border border-[#d0d9e8] rounded-2xl shadow-lg px-12 py-14 w-full max-w-lg min-h-[32rem] flex flex-col justify-center">
+        <h2 className="text-3xl font-bold text-[#003366] mb-10 text-center">
+          DUT Attendance Login
+        </h2>
+        <form onSubmit={handleLogin} className="space-y-7">
+          <div>
+            <label className="block mb-2 font-semibold text-[#003366] tracking-wide">
+              Email
+            </label>
+            <input
+              type="email"
+              placeholder="Enter your email"
+              className="w-full border border-gray-300 rounded-lg px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[#003366] shadow-sm transition"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="username"
+            />
+          </div>
+          <div>
+            <label className="block mb-2 font-semibold text-[#003366] tracking-wide">
+              Password
+            </label>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              className="w-full border border-gray-300 rounded-lg px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[#003366] shadow-sm transition"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-[#003366] hover:bg-[#002244] text-white font-semibold py-3 rounded-lg transition duration-300 shadow cursor-pointer"
+          >
+            Login
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

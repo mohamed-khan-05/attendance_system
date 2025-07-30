@@ -4,17 +4,16 @@ const CreateCard = ({ title, fields, onSubmit }) => {
   const [formData, setFormData] = useState(
     Object.fromEntries(fields.map((field) => [field.name, field.default || ""]))
   );
-
   const [show, setShow] = useState(false);
 
   const handleChange = (e, field) => {
     const value =
       field.type === "array" ? e.target.value.split(",") : e.target.value;
-
     setFormData({ ...formData, [field.name]: value });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = (e) => {
+    e.preventDefault();
     onSubmit(formData);
     setFormData(
       Object.fromEntries(
@@ -26,19 +25,32 @@ const CreateCard = ({ title, fields, onSubmit }) => {
 
   return (
     <div>
-      <button className="btn" onClick={() => setShow(true)}>
-        + Create {title}
+      <button
+        className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded mb-4"
+        onClick={() => setShow(true)}
+      >
+        Create {title}
       </button>
 
       {show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-xl shadow-md w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Add {title}</h2>
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShow(false)}
+        >
+          <form
+            onSubmit={handleSubmit}
+            className="relative bg-white p-6 rounded-xl shadow-md w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold text-[#003366] mb-2">
+              Add {title}
+            </h2>
+
             {fields.map((field) => (
-              <div key={field.name} className="mb-2">
+              <div key={field.name}>
                 {field.type === "select" ? (
                   <select
-                    className="input"
+                    className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003366]"
                     value={formData[field.name]}
                     onChange={(e) => handleChange(e, field)}
                   >
@@ -52,28 +64,30 @@ const CreateCard = ({ title, fields, onSubmit }) => {
                   <input
                     type={field.inputType || "text"}
                     placeholder={field.placeholder || field.name}
-                    className="input"
+                    className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003366]"
                     value={formData[field.name]}
                     onChange={(e) => handleChange(e, field)}
                   />
                 )}
               </div>
             ))}
-            <div className="flex justify-between">
+
+            <div className="flex justify-between pt-2">
               <button
-                className="btn bg-green-600 hover:bg-green-700"
-                onClick={handleSubmit}
+                type="submit"
+                className="bg-[#003366] hover:bg-[#002244] text-white rounded px-4 py-2 font-semibold transition"
               >
                 Submit
               </button>
               <button
-                className="btn bg-red-600 hover:bg-red-700"
+                type="button"
                 onClick={() => setShow(false)}
+                className="bg-[#cc0000] hover:bg-[#990000] text-white rounded px-4 py-2 font-semibold transition"
               >
                 Cancel
               </button>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </div>

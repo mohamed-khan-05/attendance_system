@@ -1,19 +1,12 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-const EditClass = ({
-  classData,
-  modules,
-  lecturers,
-  students,
-  onCancel,
-  onSave,
-}) => {
-  // Convert UNIX timestamp to HH:MM
+const EditClass = ({ classData, lecturers, students, onCancel, onSave }) => {
   const toTimeString = (unix) =>
     new Date(unix * 1000).toLocaleTimeString("en-GB", {
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
 
   const [formData, setFormData] = useState({
@@ -43,13 +36,24 @@ const EditClass = ({
     });
   };
 
+  const convertToUnix = (timeStr, referenceUnix) => {
+    const [hours, minutes] = timeStr.split(":");
+    const date = new Date(referenceUnix * 1000);
+    date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+    return Math.floor(date.getTime() / 1000);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const payload = {
+      ...formData,
+      startTime: convertToUnix(formData.startTime, classData.startTime),
+      endTime: convertToUnix(formData.endTime, classData.endTime),
+    };
+
     try {
-      await axios.put(`${BACKEND_URL}/class/${classData.id}`, {
-        ...formData,
-      });
+      await axios.put(`${BACKEND_URL}/class/${classData.id}`, payload);
       onSave();
     } catch (error) {
       console.error("Error updating class:", error);
@@ -67,9 +71,12 @@ const EditClass = ({
   );
 
   return (
-    <div className="p-4 border rounded shadow-md bg-white">
+    <div className="p-4">
       <h2 className="text-lg font-semibold mb-4">Edit Class</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 max-h-[75vh] overflow-y-auto"
+      >
         <div>
           <label className="block font-medium">Module (locked)</label>
           <input

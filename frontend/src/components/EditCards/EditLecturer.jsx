@@ -52,8 +52,14 @@ const EditLecturer = ({ lecturer, onCancel, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-xl shadow-md w-full max-w-md">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={onCancel} // Close when clicking outside modal
+    >
+      <div
+        className="bg-white p-6 rounded-xl shadow-md w-full max-w-md"
+        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+      >
         <h2 className="text-xl font-bold mb-4">Edit Lecturer</h2>
 
         <label className="block mb-2">
@@ -108,20 +114,20 @@ const EditLecturer = ({ lecturer, onCancel, onSave }) => {
           />
         </label>
 
-        <div className="flex justify-between">
+        <div className="flex gap-4">
           <button
-            className="btn bg-red-600 hover:bg-red-700"
+            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+            onClick={handleUpdate}
+            disabled={loading}
+          >
+            Save
+          </button>
+          <button
+            className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
             onClick={onCancel}
             disabled={loading}
           >
             Cancel
-          </button>
-          <button
-            className="btn bg-green-600 hover:bg-green-700"
-            onClick={handleUpdate}
-            disabled={loading}
-          >
-            {loading ? "Updating..." : "Update"}
           </button>
         </div>
       </div>

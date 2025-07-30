@@ -26,6 +26,9 @@ const ProtectedRoute = ({ children }) => {
 const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [lastFetched, setLastFetched] = useState(null);
+
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
@@ -45,10 +48,29 @@ const App = () => {
     checkSession();
   }, []);
 
+  const fetchAttendanceData = async (lecturerId) => {
+    try {
+      const res = await axios.get(`${BACKEND_URL}/mark/${lecturerId}`);
+      setAttendanceData(res.data);
+      setLastFetched(new Date());
+    } catch (error) {
+      console.error("Error fetching attendance:", error);
+    }
+  };
+
   if (loading) return <div className="p-4">Loading...</div>;
 
   return (
-    <UserContext.Provider value={{ user, setUser }}>
+    <UserContext.Provider
+      value={{
+        user,
+        setUser,
+        attendanceData,
+        setAttendanceData,
+        lastFetched,
+        fetchAttendanceData,
+      }}
+    >
       <Router>
         <Routes>
           <Route

@@ -88,28 +88,16 @@ module.exports = (db) => {
         return res.status(404).json({ error: "Class not found" });
       }
 
-      const classData = doc.data();
       const updateData = {};
 
-      if (req.body.module && req.body.module !== classData.module) {
-        return res.status(400).json({ error: "Module cannot be changed" });
-      }
-
-      const parseTimeToUnix = (timeStr) => {
-        const [hour, minute] = timeStr.split(":").map(Number);
-        const now = new Date();
-        now.setHours(hour || 0, minute || 0, 0, 0);
-        return Math.floor(now.getTime() / 1000);
-      };
-
-      if (startTime) updateData.startTime = parseTimeToUnix(startTime);
-      if (endTime) updateData.endTime = parseTimeToUnix(endTime);
+      if (typeof startTime === "number") updateData.startTime = startTime;
+      if (typeof endTime === "number") updateData.endTime = endTime;
       if (location) updateData.location = location;
       if (lecturer) updateData.lecturer = lecturer;
       if (course) updateData.course = course;
-      if (students) {
+      if (Array.isArray(students)) {
         updateData.students = students;
-        updateData.studentsCount = students.length; // <== update count here
+        updateData.studentsCount = students.length;
       }
 
       await classRef.update(updateData);

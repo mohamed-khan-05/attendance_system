@@ -155,5 +155,40 @@ module.exports = (db) => {
     }
   });
 
+  // Update student info
+  router.put("/students/:id", async (req, res) => {
+    const { id } = req.params;
+    const { name, studentNumber, modules } = req.body;
+
+    if (!name || !studentNumber) {
+      return res
+        .status(400)
+        .json({ error: "Name and student number are required" });
+    }
+
+    try {
+      const userDoc = await usersCollection.doc(id).get();
+      if (!userDoc.exists)
+        return res.status(404).json({ error: "Student not found" });
+
+      // Confirm user type is student
+      if (userDoc.data().type !== "student") {
+        return res.status(400).json({ error: "User is not a student" });
+      }
+
+      const updateData = {
+        name,
+        studentNumber,
+        modules: Array.isArray(modules) ? modules : [],
+      };
+
+      await usersCollection.doc(id).update(updateData);
+      res.json({ message: "Student updated successfully" });
+    } catch (err) {
+      console.error("Error updating student:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   return router;
 };

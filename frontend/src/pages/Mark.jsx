@@ -1,42 +1,39 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { UserContext } from "../App";
 
 const Mark = () => {
-  const location = useLocation();
+  const {
+    user,
+    attendanceData,
+    setAttendanceData,
+    lastFetched,
+    fetchAttendanceData,
+  } = useContext(UserContext);
+
   const navigate = useNavigate();
-  const { user } = location.state || {};
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [expandedStudent, setExpandedStudent] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [markInputs, setMarkInputs] = useState({});
   const [markLoading, setMarkLoading] = useState({});
+  const [loading, setLoading] = useState(false);
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
-    if (!user?.id) return;
-
-    const fetchAttendance = async () => {
-      try {
-        const res = await axios.get(`${BACKEND_URL}/mark/${user.id}`);
-        setData(res.data);
-      } catch (error) {
-        console.error("Failed to fetch attendance", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAttendance();
+    const now = new Date();
+    if (!lastFetched || now - new Date(lastFetched) > 1000 * 60 * 2) {
+      setLoading(true);
+      fetchAttendanceData(user?.id).finally(() => setLoading(false));
+    }
   }, [user]);
 
   if (!user?.id) return <div>Invalid user session.</div>;
   if (loading) return <div>Loading attendance data...</div>;
 
   const studentMap = {};
-  data.forEach((classItem) => {
+  attendanceData.forEach((classItem) => {
     classItem.students.forEach((student) => {
       if (!studentMap[student.id]) {
         studentMap[student.id] = {
@@ -97,7 +94,8 @@ const Mark = () => {
         mark: markNumber,
       });
 
-      setData((prevData) =>
+      // Local update to avoid refetch
+      setAttendanceData((prevData) =>
         prevData.map((classItem) => {
           if (
             classItem.moduleCode === moduleCode &&

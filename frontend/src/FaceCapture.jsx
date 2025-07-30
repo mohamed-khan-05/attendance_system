@@ -22,7 +22,11 @@ const FaceCapture = ({ onFaceData }) => {
     const startVideo = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            width: { ideal: 640 }, // Request 16:9 aspect ratio stream
+            height: { ideal: 360 },
+            facingMode: "user", // Front camera preferred
+          },
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -60,7 +64,7 @@ const FaceCapture = ({ onFaceData }) => {
     };
 
     if (!loading && !streamError) {
-      interval = setInterval(detect, 2000); // auto detect every 2 seconds
+      interval = setInterval(detect, 2000); // detect every 2 seconds
     }
 
     return () => clearInterval(interval);
@@ -75,13 +79,11 @@ const FaceCapture = ({ onFaceData }) => {
       ) : (
         <video
           ref={videoRef}
-          width="320"
-          height="240"
           muted
           autoPlay
           playsInline
-          className="rounded border"
-          style={{ backgroundColor: "#000" }}
+          className="w-full h-full object-cover rounded"
+          style={{ display: "block", backgroundColor: "#000" }}
         />
       )}
     </div>

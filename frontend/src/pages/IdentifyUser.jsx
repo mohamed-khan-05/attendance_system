@@ -79,29 +79,38 @@ const IdentifyUser = () => {
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">
-        Taking Attendance for {classModule}
-      </h2>
+    <div className="min-h-screen bg-blue-50 flex items-center justify-center px-4 py-10">
+      <div className="bg-white shadow-xl rounded-2xl w-full max-w-2xl p-8 border border-blue-100">
+        <h2 className="text-2xl font-bold text-blue-900 mb-6 text-center">
+          Attendance for <span className="underline">{classModule}</span>
+        </h2>
 
-      <div className="mb-4 text-lg">
-        <strong>Detected:</strong>{" "}
-        <span className="text-blue-600">{identifiedName || "Scanning..."}</span>
+        <div className="mb-6 text-center">
+          <p className="text-md text-gray-600">
+            <strong>Detected:</strong>{" "}
+            <span className="text-blue-700 font-semibold">
+              {identifiedName || "Scanning..."}
+            </span>
+          </p>
+          {matchScore && identifiedName !== "Unknown Face" && (
+            <p className="text-sm text-gray-500 mt-1">
+              Confidence Score: {matchScore}
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-center mb-6">
+          <div className="w-full max-w-md aspect-video rounded-lg overflow-hidden border border-blue-300 shadow-sm bg-black">
+            <FaceCapture onFaceData={handleFaceCaptured} />
+          </div>
+        </div>
+
+        {marked && (
+          <div className="mt-4 text-center bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-lg font-medium transition-all">
+            ✅ Attendance marked successfully
+          </div>
+        )}
       </div>
-
-      <FaceCapture onFaceData={handleFaceCaptured} />
-
-      {matchScore && identifiedName !== "Unknown Face" && (
-        <p className="text-sm text-gray-500 mt-2">
-          Match confidence: {matchScore}
-        </p>
-      )}
-
-      {marked && (
-        <p className="text-green-600 font-medium mt-4">
-          ✅ Attendance marked successfully.
-        </p>
-      )}
     </div>
   );
 };
