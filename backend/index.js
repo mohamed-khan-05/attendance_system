@@ -41,6 +41,8 @@ const classRouter = require("./routes/classRoute")(db);
 app.use("/class", classRouter);
 const attendanceRouter = require("./routes/attendanceRoute")(db);
 app.use("/attendance", attendanceRouter);
+const markRouter = require("./routes/markRoute")(db);
+app.use("/mark", markRouter);
 
 app.listen(3001, () => {
   console.log("Server running on PORT 3001");

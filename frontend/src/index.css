@@ -6,3 +6,23 @@
 .btn {
   @apply bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700;
 }
+
+#back-button {
+  display: inline-block;
+  background-color: #003366; /* DUT navy blue */
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+#back-button:hover {
+  background-color: #002244;
+}
+
+body {
+  background-color: #f5f7fa;
+  font-family: "Segoe UI", sans-serif;
+}

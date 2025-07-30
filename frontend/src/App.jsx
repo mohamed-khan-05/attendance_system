@@ -13,6 +13,7 @@ import IdentifyUser from "./pages/IdentifyUser.JSX";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import PastClasses from "./pages/PastClasses";
+import Mark from "./pages/Mark";
 
 // Create and export context
 export const UserContext = createContext();
@@ -82,6 +83,14 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <PastClasses />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mark"
+            element={
+              <ProtectedRoute>
+                <Mark />
               </ProtectedRoute>
             }
           />

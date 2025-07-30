@@ -142,18 +142,64 @@ module.exports = (db) => {
   });
 
   // Get classes assigned to a specific lecturer
+  // Get classes assigned to a specific lecturer with non-deleted modules
   router.get("/lecturer/:lecturerId", async (req, res) => {
     try {
+      const lecturerId = req.params.lecturerId;
+
+      // Fetch classes for this lecturer
       const snapshot = await classCollection
-        .where("lecturer", "==", req.params.lecturerId)
+        .where("lecturer", "==", lecturerId)
         .get();
 
-      const classes = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const classDocs = snapshot.docs;
 
-      res.json(classes);
+      const classesWithModules = await Promise.all(
+        classDocs.map(async (doc) => {
+          const classData = doc.data();
+
+          const moduleCode = classData.module;
+          if (!moduleCode) {
+            console.warn(`Class ${doc.id} missing module code`);
+            return null;
+          }
+
+          // Query module by code field
+          const moduleQuery = await db
+            .collection("modules")
+            .where("code", "==", moduleCode)
+            .limit(1)
+            .get();
+
+          if (moduleQuery.empty) {
+            console.warn(
+              `Module with code ${moduleCode} not found for class ${doc.id}`
+            );
+            return null;
+          }
+
+          const moduleDoc = moduleQuery.docs[0];
+          const moduleData = moduleDoc.data();
+
+          // Skip if module is deleted
+          if (moduleData.status === "deleted") {
+            return null;
+          }
+
+          // Return class with module info if needed (optional)
+          return {
+            id: doc.id,
+            ...classData,
+            moduleName: moduleData.name || "(No name)",
+            moduleCode: moduleData.code || "(No code)",
+          };
+        })
+      );
+
+      // Filter out nulls (deleted modules or missing modules)
+      const filteredClasses = classesWithModules.filter(Boolean);
+
+      res.json(filteredClasses);
     } catch (err) {
       console.error("Error fetching lecturer's classes:", err);
       res.status(500).json({ error: "Failed to fetch classes" });
