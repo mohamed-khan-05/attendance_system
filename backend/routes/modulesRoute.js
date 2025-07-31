@@ -49,6 +49,7 @@ module.exports = (db) => {
   });
 
   // Update a module by ID
+  // Update a module by ID
   router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const { code, name } = req.body;
@@ -76,23 +77,38 @@ module.exports = (db) => {
         return res.status(400).json({ error: "Module code already exists" });
       }
 
-      // Update the module doc
+      // Update the module document
       await moduleRef.update({ code, name });
 
-      // Batch update users
       const usersRef = db.collection("users");
       const usersSnap = await usersRef
         .where("modules", "array-contains", oldCode)
         .get();
+
       const batch = db.batch();
 
       usersSnap.forEach((doc) => {
-        const modules = doc.data().modules || [];
+        const userData = doc.data();
+        const docRef = usersRef.doc(doc.id);
+
+        // Update `modules` array
+        const modules = userData.modules || [];
         const updatedModules = modules.map((m) => (m === oldCode ? code : m));
-        batch.update(usersRef.doc(doc.id), { modules: updatedModules });
+        batch.update(docRef, { modules: updatedModules });
+
+        // Update `marks` map (only if type === "student")
+        if (
+          userData.type === "student" &&
+          userData.marks?.[oldCode] !== undefined
+        ) {
+          const updatedMarks = { ...userData.marks };
+          updatedMarks[code] = updatedMarks[oldCode];
+          delete updatedMarks[oldCode];
+          batch.update(docRef, { marks: updatedMarks });
+        }
       });
 
-      // Batch update class.module field if it matches oldCode
+      // Update any class documents that reference the old module code
       const classRef = db.collection("class");
       const classSnap = await classRef.where("module", "==", oldCode).get();
 
@@ -102,7 +118,7 @@ module.exports = (db) => {
 
       await batch.commit();
 
-      res.json({ message: "Module updated and references synced." });
+      res.json({ message: "Module updated and all references synced." });
     } catch (err) {
       console.error("Error updating module:", err);
       res
