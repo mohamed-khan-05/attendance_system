@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import FaceCapture from "../FaceCapture";
 import * as faceapi from "face-api.js";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const IdentifyUser = () => {
   const [users, setUsers] = useState([]);
   const [identifiedName, setIdentifiedName] = useState(null);
   const [matchScore, setMatchScore] = useState(null);
   const [marked, setMarked] = useState(false);
+  const navigate = useNavigate();
+  const faceCaptureRef = useRef();
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
   const location = useLocation();
@@ -78,9 +80,17 @@ const IdentifyUser = () => {
     }
   };
 
+  const handleBack = () => {
+    faceCaptureRef.current?.stopCamera();
+    navigate("/lecturer");
+  };
+
   return (
     <div className="min-h-screen bg-blue-50 flex items-center justify-center px-4 py-10">
       <div className="bg-white shadow-xl rounded-2xl w-full max-w-2xl p-8 border border-blue-100">
+        <button id="back-button" onClick={handleBack}>
+          ← Back to Dashboard
+        </button>
         <h2 className="text-2xl font-bold text-blue-900 mb-6 text-center">
           Attendance for <span className="underline">{classModule}</span>
         </h2>
@@ -101,7 +111,7 @@ const IdentifyUser = () => {
 
         <div className="flex justify-center mb-6">
           <div className="w-full max-w-md aspect-video rounded-lg overflow-hidden border border-blue-300 shadow-sm bg-black">
-            <FaceCapture onFaceData={handleFaceCaptured} />
+            <FaceCapture ref={faceCaptureRef} onFaceData={handleFaceCaptured} />
           </div>
         </div>
 

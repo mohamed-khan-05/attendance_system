@@ -1,10 +1,31 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import * as faceapi from "face-api.js";
 
-const FaceCapture = ({ onFaceData }) => {
+const FaceCapture = forwardRef(({ onFaceData }, ref) => {
   const videoRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [streamError, setStreamError] = useState(null);
+  const intervalRef = useRef(null);
+  const streamRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    stopCamera: () => {
+      clearInterval(intervalRef.current);
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+
+      if (videoRef.current) videoRef.current.srcObject = null;
+    },
+  }));
 
   useEffect(() => {
     const loadModels = async () => {
@@ -23,11 +44,12 @@ const FaceCapture = ({ onFaceData }) => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 640 }, // Request 16:9 aspect ratio stream
+            width: { ideal: 640 },
             height: { ideal: 360 },
-            facingMode: "user", // Front camera preferred
+            facingMode: "user",
           },
         });
+        streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
@@ -40,14 +62,13 @@ const FaceCapture = ({ onFaceData }) => {
     loadModels().then(startVideo);
 
     return () => {
-      if (videoRef.current?.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
-      }
+      clearInterval(intervalRef.current);
+      if (streamRef.current)
+        streamRef.current.getTracks().forEach((track) => track.stop());
     };
   }, []);
 
   useEffect(() => {
-    let interval;
     const detect = async () => {
       if (!videoRef.current) return;
       const detection = await faceapi
@@ -64,10 +85,10 @@ const FaceCapture = ({ onFaceData }) => {
     };
 
     if (!loading && !streamError) {
-      interval = setInterval(detect, 2000); // detect every 2 seconds
+      intervalRef.current = setInterval(detect, 2000);
     }
 
-    return () => clearInterval(interval);
+    return () => clearInterval(intervalRef.current);
   }, [loading, streamError, onFaceData]);
 
   return (
@@ -88,6 +109,6 @@ const FaceCapture = ({ onFaceData }) => {
       )}
     </div>
   );
-};
+});
 
 export default FaceCapture;
