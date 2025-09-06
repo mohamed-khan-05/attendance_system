@@ -7,8 +7,6 @@ const admin = require("firebase-admin");
 const serviceAccount = require("./config/serviceAccountKey.json");
 const morgan = require("morgan");
 
-// Log requests in 'dev' format (color-coded, concise)
-
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
@@ -23,7 +21,7 @@ app.use(createSession());
 app.use(
   cors({
     origin: ["http://localhost:5173"],
-    methods: ["GET", "POST", "PUT"],
+    methods: ["GET", "POST", "PUT", "OPTIONS"],
     credentials: true,
   })
 );

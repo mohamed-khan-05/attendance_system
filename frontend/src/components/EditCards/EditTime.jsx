@@ -27,7 +27,22 @@ const EditTime = ({ classData, onSave, onCancel }) => {
 
   const handleSave = () => {
     if (startTime && endTime) {
-      onSave({ startTime, endTime }); // pass both times as an object
+      const parseTimeToUnix = (timeStr) => {
+        const [hour, minute] = timeStr.split(":").map(Number);
+        const now = new Date();
+        now.setHours(hour || 0, minute || 0, 0, 0);
+        return Math.floor(now.getTime() / 1000);
+      };
+
+      const startUnix = parseTimeToUnix(startTime);
+      const endUnix = parseTimeToUnix(endTime);
+
+      if (startUnix >= endUnix) {
+        alert("Start time must be before end time");
+        return;
+      }
+
+      onSave({ startTime: startUnix, endTime: endUnix });
     }
   };
 

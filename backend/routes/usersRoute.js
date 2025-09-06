@@ -5,6 +5,9 @@ module.exports = (db) => {
   const router = express.Router();
   const usersCollection = db.collection("users");
 
+  // Helper to validate numeric student number
+  const isNumeric = (value) => /^[0-9]+$/.test(value);
+
   // Get all students
   router.get("/students", async (req, res) => {
     try {
@@ -53,16 +56,16 @@ module.exports = (db) => {
 
     try {
       if (type === "lecturer") {
-        if (!email || !password || !name) {
+        if (!name || !email || !password) {
           return res
             .status(400)
             .json({ error: "Missing required lecturer fields" });
         }
 
-        const snapshot = await usersCollection
+        const emailCheck = await usersCollection
           .where("email", "==", email)
           .get();
-        if (!snapshot.empty) {
+        if (!emailCheck.empty) {
           return res.status(400).json({ error: "Email already exists" });
         }
 
@@ -73,25 +76,46 @@ module.exports = (db) => {
           password: hashedPassword,
           type: "lecturer",
         });
-        return res.status(201).json({ message: "Lecturer created" });
+        return res
+          .status(201)
+          .json({ message: "Lecturer created successfully" });
       }
 
       if (type === "student") {
         if (!name || !studentNumber) {
-          return res.status(400).json({ error: "Missing student fields" });
+          return res
+            .status(400)
+            .json({ error: "Missing required student fields" });
+        }
+
+        if (!isNumeric(studentNumber)) {
+          return res
+            .status(400)
+            .json({ error: "Student number must contain only numbers" });
+        }
+
+        const studentCheck = await usersCollection
+          .where("studentNumber", "==", studentNumber)
+          .get();
+        if (!studentCheck.empty) {
+          return res
+            .status(400)
+            .json({ error: "Student number already exists" });
         }
 
         await usersCollection.add({
           name,
           studentNumber,
-          modules,
-          faceDescriptor,
+          modules: Array.isArray(modules) ? modules : [],
+          faceDescriptor: faceDescriptor || null,
           type: "student",
         });
-        return res.status(201).json({ message: "Student created" });
+        return res
+          .status(201)
+          .json({ message: "Student created successfully" });
       }
 
-      res.status(400).json({ error: "Invalid user type" });
+      return res.status(400).json({ error: "Invalid user type" });
     } catch (err) {
       console.error("Error creating user:", err);
       res.status(500).json({ error: "Server error" });
@@ -99,25 +123,22 @@ module.exports = (db) => {
   });
 
   // Update lecturer info
-  router.put("/:id", async (req, res) => {
+  router.put("/lecturers/:id", async (req, res) => {
     const { id } = req.params;
-    const { name, email, oldPassword, newPassword, type } = req.body;
+    const { name, email, oldPassword, newPassword } = req.body;
 
-    if (type !== "lecturer") {
-      return res
-        .status(400)
-        .json({ error: "Invalid user type for this route" });
-    }
+    if (!name) return res.status(400).json({ error: "Name is required" });
 
     try {
       const userDoc = await usersCollection.doc(id).get();
       if (!userDoc.exists)
-        return res.status(404).json({ error: "User not found" });
+        return res.status(404).json({ error: "Lecturer not found" });
+      if (userDoc.data().type !== "lecturer")
+        return res.status(400).json({ error: "User is not a lecturer" });
 
       const user = userDoc.data();
       const updateData = { name };
 
-      // Email uniqueness check
       if (email && email !== user.email) {
         const emailCheck = await usersCollection
           .where("email", "==", email)
@@ -128,26 +149,23 @@ module.exports = (db) => {
         updateData.email = email;
       }
 
-      // Password update only if oldPassword and newPassword both provided
       if ((oldPassword && !newPassword) || (!oldPassword && newPassword)) {
-        return res.status(400).json({
-          error:
-            "Both old and new password must be provided to change password",
-        });
+        return res
+          .status(400)
+          .json({
+            error:
+              "Both old and new password must be provided to change password",
+          });
       }
 
       if (oldPassword && newPassword) {
         const isValid = await bcrypt.compare(oldPassword, user.password);
-        if (!isValid) {
+        if (!isValid)
           return res.status(401).json({ error: "Incorrect old password" });
-        }
         updateData.password = await bcrypt.hash(newPassword, 10);
       }
 
-      updateData.type = "lecturer";
-
       await usersCollection.doc(id).update(updateData);
-
       res.json({ message: "Lecturer updated successfully" });
     } catch (err) {
       console.error("Error updating lecturer:", err);
@@ -160,20 +178,29 @@ module.exports = (db) => {
     const { id } = req.params;
     const { name, studentNumber, modules } = req.body;
 
-    if (!name || !studentNumber) {
+    if (!name || !studentNumber)
       return res
         .status(400)
         .json({ error: "Name and student number are required" });
+
+    if (!isNumeric(studentNumber)) {
+      return res
+        .status(400)
+        .json({ error: "Student number must contain only numbers" });
     }
 
     try {
       const userDoc = await usersCollection.doc(id).get();
       if (!userDoc.exists)
         return res.status(404).json({ error: "Student not found" });
-
-      // Confirm user type is student
-      if (userDoc.data().type !== "student") {
+      if (userDoc.data().type !== "student")
         return res.status(400).json({ error: "User is not a student" });
+
+      const snCheck = await usersCollection
+        .where("studentNumber", "==", studentNumber)
+        .get();
+      if (!snCheck.empty && snCheck.docs[0].id !== id) {
+        return res.status(400).json({ error: "Student number already exists" });
       }
 
       const updateData = {

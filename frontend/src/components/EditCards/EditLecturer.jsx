@@ -28,7 +28,7 @@ const EditLecturer = ({ lecturer, onCancel, onSave }) => {
 
     setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/users/${lecturer.id}`, {
+      const res = await fetch(`${BACKEND_URL}/users/lecturers/${lecturer.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...formData, type: "lecturer" }),

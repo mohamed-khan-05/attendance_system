@@ -81,7 +81,13 @@ const EditStudent = ({ studentData, modules, onCancel, onSave }) => {
       onSave();
     } catch (error) {
       console.error("Error updating student:", error.response || error);
-      alert("Failed to update student");
+
+      // Show backend message if available, fallback to generic
+      if (error.response && error.response.data && error.response.data.error) {
+        alert(`Failed to update student: ${error.response.data.error}`);
+      } else {
+        alert("Failed to update student due to server error");
+      }
     }
   };
 
