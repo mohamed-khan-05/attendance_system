@@ -15,7 +15,7 @@ const Dashboard = () => {
   useEffect(() => {
     if (!user) {
       axios
-        .get(`${BACKEND_URL}/users/session`, { withCredentials: true })
+        .get(`${BACKEND_URL}/auth/session`, { withCredentials: true })
         .then((res) => setUser(res.data))
         .catch(() => navigate("/"));
     }
