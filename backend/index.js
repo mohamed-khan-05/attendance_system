@@ -20,11 +20,12 @@ app.use(morgan("dev"));
 app.use(createSession());
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: [process.env.FRONTEND_URL || "http://localhost:5173"],
     methods: ["GET", "POST", "PUT", "OPTIONS"],
     credentials: true,
   })
 );
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -42,6 +43,14 @@ app.use("/attendance", attendanceRouter);
 const markRouter = require("./routes/markRoute")(db);
 app.use("/mark", markRouter);
 
-app.listen(3001, () => {
-  console.log("Server running on PORT 3001");
-});
+const PORT = process.env.PORT || 3001;
+
+if (process.env.NODE_ENV === "development") {
+  app.listen(3001, () => {
+    console.log("Server running on PORT 3001 (development)");
+  });
+} else {
+  app.listen(PORT, () => {
+    console.log(`Server running on PORT ${PORT} (production)`);
+  });
+}

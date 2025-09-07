@@ -9,7 +9,7 @@ import axios from "axios";
 
 // pages
 import Admin from "./pages/Admin";
-import IdentifyUser from "./pages/IdentifyUser.JSX";
+import IdentifyUser from "./pages/IdentifyUser";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import PastClasses from "./pages/PastClasses";
