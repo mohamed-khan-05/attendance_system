@@ -1,7 +1,6 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
-const createSession = require("./utils/session");
 const bodyParser = require("body-parser");
 const admin = require("firebase-admin");
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -12,12 +11,9 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-
 const app = express();
-
 app.use(morgan("dev"));
 
-app.use(createSession());
 app.use(
   cors({
     origin: [process.env.FRONTEND_URL || "http://localhost:5173"],

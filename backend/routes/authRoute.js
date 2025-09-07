@@ -1,9 +1,11 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 module.exports = (db) => {
   const router = express.Router();
   const usersCollection = db.collection("users");
+  const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
   // Login route
   router.post("/login", async (req, res) => {
@@ -21,13 +23,25 @@ module.exports = (db) => {
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) return res.status(400).json({ error: "Invalid credentials" });
 
-      // Set session
-      req.session.user = {
-        id: userDoc.id,
-        name: user.name,
-        type: user.type,
-        email: user.email,
-      };
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          id: userDoc.id,
+          name: user.name,
+          email: user.email,
+          type: user.type,
+        },
+        JWT_SECRET,
+        { expiresIn: "1h" }
+      );
+
+      // Send JWT as httpOnly cookie
+      res.cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        maxAge: 1000 * 60 * 60, // 1 hour
+      });
 
       res.json({
         message: "Login successful",
@@ -44,20 +58,33 @@ module.exports = (db) => {
     }
   });
 
-  // Get session info
-  router.get("/session", (req, res) => {
-    if (req.session.user) {
-      return res.json(req.session.user);
-    } else {
-      return res.status(401).json({ error: "Not logged in" });
+  // Middleware to verify JWT
+  const verifyToken = (req, res, next) => {
+    const token = req.cookies.token;
+    if (!token) return res.status(401).json({ error: "Not logged in" });
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = decoded;
+      next();
+    } catch {
+      return res.status(401).json({ error: "Invalid token" });
     }
+  };
+
+  // Get session info
+  router.get("/session", verifyToken, (req, res) => {
+    res.json(req.user);
   });
 
   // Logout route
   router.post("/logout", (req, res) => {
-    req.session.destroy(() => {
-      res.json({ message: "Logged out" });
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
+    res.json({ message: "Logged out" });
   });
 
   return router;
