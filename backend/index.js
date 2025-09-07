@@ -3,8 +3,18 @@ const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const admin = require("firebase-admin");
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const morgan = require("morgan");
+
+require("dotenv").config();
+console.log("NODE_ENV:", process.env.NODE_ENV);
+
+let serviceAccount;
+
+if (process.env.NODE_ENV === "development") {
+  serviceAccount = require("./config/serviceAccountKey.json");
+} else {
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
