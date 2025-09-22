@@ -68,6 +68,7 @@ const EditLecturer = ({ lecturer, onCancel, onSave }) => {
           <input
             name="name"
             type="text"
+            maxLength={50}
             value={formData.name}
             onChange={handleChange}
             className="input"
@@ -81,6 +82,7 @@ const EditLecturer = ({ lecturer, onCancel, onSave }) => {
           <input
             name="email"
             type="email"
+            maxLength={50}
             value={formData.email}
             onChange={handleChange}
             className="input"
@@ -94,6 +96,7 @@ const EditLecturer = ({ lecturer, onCancel, onSave }) => {
           <input
             name="oldPassword"
             type="password"
+            maxLength={20}
             value={formData.oldPassword}
             onChange={handleChange}
             className="input"
@@ -107,6 +110,7 @@ const EditLecturer = ({ lecturer, onCancel, onSave }) => {
           <input
             name="newPassword"
             type="password"
+            maxLength={20}
             value={formData.newPassword}
             onChange={handleChange}
             className="input"

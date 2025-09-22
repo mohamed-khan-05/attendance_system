@@ -3,7 +3,7 @@ import axios from "axios";
 
 const CreateClassForm = ({ onClassCreated, onClose = () => {} }) => {
   const [formData, setFormData] = useState({
-    module: "",
+    moduleId: "", // changed from module
     startTime: "",
     endTime: "",
     location: "",
@@ -29,7 +29,8 @@ const CreateClassForm = ({ onClassCreated, onClose = () => {} }) => {
           axios.get(`${BACKEND_URL}/users/lecturers`),
           axios.get(`${BACKEND_URL}/users/students`),
         ]);
-        setModules(modRes.data);
+        // Filter out deleted modules
+        setModules(modRes.data.filter((mod) => mod.status !== "deleted"));
         setLecturers(lecRes.data);
         setStudents(stuRes.data);
       } catch (error) {
@@ -46,19 +47,23 @@ const CreateClassForm = ({ onClassCreated, onClose = () => {} }) => {
   };
 
   const handleModuleChange = (e) => {
-    const selectedModule = e.target.value;
+    const selectedModuleId = e.target.value;
     const eligibleStudents = students.filter((s) =>
-      (s.modules || []).includes(selectedModule)
+      (s.modules || []).includes(selectedModuleId)
     );
     setFilteredStudents(eligibleStudents);
-    setFormData((prev) => ({ ...prev, module: selectedModule, students: [] }));
+    setFormData((prev) => ({
+      ...prev,
+      moduleId: selectedModuleId,
+      students: [],
+    }));
     setStudentSearch("");
-    setErrors((prev) => ({ ...prev, module: null }));
+    setErrors((prev) => ({ ...prev, moduleId: null }));
   };
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.module) newErrors.module = "Please select a Module";
+    if (!formData.moduleId) newErrors.moduleId = "Please select a Module";
     if (!formData.startTime) newErrors.startTime = "Please select Start Time";
     if (!formData.endTime) newErrors.endTime = "Please select End Time";
     if (!formData.location.trim())
@@ -70,7 +75,6 @@ const CreateClassForm = ({ onClassCreated, onClose = () => {} }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -81,7 +85,7 @@ const CreateClassForm = ({ onClassCreated, onClose = () => {} }) => {
       await axios.post(`${BACKEND_URL}/class`, formData);
       onClassCreated?.();
       setFormData({
-        module: "",
+        moduleId: "",
         startTime: "",
         endTime: "",
         location: "",
@@ -92,7 +96,7 @@ const CreateClassForm = ({ onClassCreated, onClose = () => {} }) => {
       setStudentSearch("");
       setFilteredStudents([]);
       setErrors({});
-      onClose(); // close modal on success
+      onClose();
     } catch (err) {
       console.error("Failed to create class:", err);
     }
@@ -105,14 +109,14 @@ const CreateClassForm = ({ onClassCreated, onClose = () => {} }) => {
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      onClick={onClose} // close on outside click
+      onClick={onClose}
     >
       <form
         onSubmit={handleSubmit}
         className="relative bg-white p-6 rounded-xl shadow-md w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4"
-        onClick={(e) => e.stopPropagation()} // prevent closing on inside click
+        onClick={(e) => e.stopPropagation()}
       >
-        {errors.module && <ErrorText message={errors.module} />}
+        {errors.moduleId && <ErrorText message={errors.moduleId} />}
         <select
           name="module"
           value={formData.module}
@@ -120,19 +124,18 @@ const CreateClassForm = ({ onClassCreated, onClose = () => {} }) => {
           className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003366]"
         >
           <option value="">Select Module</option>
-          {modules.map((mod) => (
-            <option key={mod.code} value={mod.code}>
-              {mod.name} ({mod.code})
-            </option>
-          ))}
+          {modules
+            .filter((mod) => mod.status === "active") // only show active modules
+            .map((mod) => (
+              <option key={mod.id} value={mod.id}>
+                {mod.name} ({mod.code})
+              </option>
+            ))}
         </select>
 
-        <label htmlFor="startTime" className="block font-semibold mt-2">
-          Start Time
-        </label>
+        {/* Start/End Time, Location, Lecturer, Course fields unchanged */}
         {errors.startTime && <ErrorText message={errors.startTime} />}
         <input
-          id="startTime"
           type="time"
           name="startTime"
           value={formData.startTime}
@@ -140,12 +143,8 @@ const CreateClassForm = ({ onClassCreated, onClose = () => {} }) => {
           className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003366]"
         />
 
-        <label htmlFor="endTime" className="block font-semibold mt-2">
-          End Time
-        </label>
         {errors.endTime && <ErrorText message={errors.endTime} />}
         <input
-          id="endTime"
           type="time"
           name="endTime"
           value={formData.endTime}
@@ -188,6 +187,7 @@ const CreateClassForm = ({ onClassCreated, onClose = () => {} }) => {
           className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003366]"
         />
 
+        {/* Student selection */}
         <label className="block font-semibold">Select Students</label>
         <input
           type="text"

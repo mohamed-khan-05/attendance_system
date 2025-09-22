@@ -39,6 +39,7 @@ const EditModule = ({ moduleData, onCancel, onSave }) => {
           <label className="block font-medium mb-1">Module Code</label>
           <input
             name="code"
+            maxLength={20}
             value={formData.code}
             onChange={handleChange}
             className="w-full p-2 border rounded"
@@ -49,6 +50,7 @@ const EditModule = ({ moduleData, onCancel, onSave }) => {
           <label className="block font-medium mb-1">Module Name</label>
           <input
             name="name"
+            maxLength={50}
             value={formData.name}
             onChange={handleChange}
             className="w-full p-2 border rounded"

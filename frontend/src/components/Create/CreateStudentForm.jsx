@@ -6,7 +6,7 @@ const CreateStudentForm = ({ onSubmit, onClose, modules }) => {
     name: "",
     studentNumber: "",
     faceDescriptor: null,
-    modules: [],
+    modules: [], // now stores Firestore module doc IDs
   });
 
   const [search, setSearch] = useState("");
@@ -15,7 +15,7 @@ const CreateStudentForm = ({ onSubmit, onClose, modules }) => {
     const studentData = {
       name: formData.name,
       studentNumber: formData.studentNumber,
-      modules: formData.modules,
+      modules: formData.modules, // Firestore module IDs
       faceDescriptor: formData.faceDescriptor,
       type: "student",
     };
@@ -40,37 +40,40 @@ const CreateStudentForm = ({ onSubmit, onClose, modules }) => {
 
   const handleModuleToggle = (mod) => {
     setFormData((prev) => {
-      const exists = prev.modules.includes(mod.code);
+      const exists = prev.modules.includes(mod.id); // toggle by module doc ID
       return {
         ...prev,
         modules: exists
-          ? prev.modules.filter((m) => m !== mod.code)
-          : [...prev.modules, mod.code],
+          ? prev.modules.filter((m) => m !== mod.id)
+          : [...prev.modules, mod.id],
       };
     });
   };
 
   const filteredModules = (query) =>
-    modules.filter(
-      (mod) =>
-        mod.name.toLowerCase().includes(query.toLowerCase()) ||
-        mod.code.toLowerCase().includes(query.toLowerCase())
-    );
+    modules
+      .filter((mod) => mod.status !== "deleted") // only show active modules
+      .filter(
+        (mod) =>
+          mod.name.toLowerCase().includes(query.toLowerCase()) ||
+          mod.code.toLowerCase().includes(query.toLowerCase())
+      );
 
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      onClick={onClose} // Close on overlay click
+      onClick={onClose} // close on overlay click
     >
       <div
         className="bg-white p-6 rounded-xl shadow-md w-full max-w-md max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()} // Prevent closing on inside click
+        onClick={(e) => e.stopPropagation()} // prevent closing on inside click
       >
         <h2 className="text-xl font-bold mb-4">Create New Student</h2>
 
         <input
           type="text"
           placeholder="Full Name"
+          maxLength={50}
           className="input w-full mb-3"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -79,6 +82,7 @@ const CreateStudentForm = ({ onSubmit, onClose, modules }) => {
         <input
           type="text"
           placeholder="Student Number"
+          maxLength={10}
           className="input w-full mb-3"
           value={formData.studentNumber}
           onChange={(e) =>
@@ -101,6 +105,7 @@ const CreateStudentForm = ({ onSubmit, onClose, modules }) => {
         <input
           type="text"
           placeholder="Search Modules"
+          maxLength={50}
           className="input w-full mb-2"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -109,12 +114,12 @@ const CreateStudentForm = ({ onSubmit, onClose, modules }) => {
         <div className="max-h-40 overflow-y-auto border p-2 rounded mb-4">
           {filteredModules(search).map((mod) => (
             <label
-              key={mod.code}
+              key={mod.id} // use Firestore doc ID
               className="block hover:bg-gray-100 cursor-pointer px-2 py-1"
             >
               <input
                 type="checkbox"
-                checked={formData.modules.includes(mod.code)}
+                checked={formData.modules.includes(mod.id)}
                 onChange={() => handleModuleToggle(mod)}
               />{" "}
               {mod.name} ({mod.code})
@@ -124,6 +129,7 @@ const CreateStudentForm = ({ onSubmit, onClose, modules }) => {
 
         <div className="flex justify-between">
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={!formData.faceDescriptor}
             className="btn bg-green-600 hover:bg-green-700"

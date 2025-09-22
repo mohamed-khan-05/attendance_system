@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { UserContext } from "../App";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -30,21 +30,181 @@ const Admin = () => {
   // Edit modal state
   const [editingModule, setEditingModule] = useState(null);
   const [editingStudent, setEditingStudent] = useState(null);
-  const [editingItem, setEditingItem] = useState(null); // for lecturer
-  const [editingType, setEditingType] = useState(null); // "lecturer"
+  const [editingItem, setEditingItem] = useState(null);
+  const [editingType, setEditingType] = useState(null);
   const [editingClass, setEditingClass] = useState(null);
+
+  // Search
+  const [filteredData, setFilteredData] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fields for create cards
   const moduleFields = [
-    { name: "code", placeholder: "Module Code" },
-    { name: "name", placeholder: "Module Name" },
+    { name: "code", placeholder: "Module Code", maxLength: 20 },
+    { name: "name", placeholder: "Module Name", maxLength: 50 },
   ];
 
   const lecturerCreateFields = [
-    { name: "name", placeholder: "Full Name" },
-    { name: "email", placeholder: "Email" },
-    { name: "password", inputType: "password", placeholder: "Password" },
+    { name: "name", placeholder: "Full Name", maxLength: 50 },
+    { name: "email", placeholder: "Email", maxLength: 100 },
+    {
+      name: "password",
+      inputType: "password",
+      placeholder: "Password",
+      maxLength: 50,
+    },
   ];
+
+  // Temporary caches to store original state
+  // Cache for original data
+  const originalCache = useRef({
+    modules: [],
+    students: [],
+    lecturers: [],
+    classes: [],
+  });
+
+  // Function to filter current tab
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    const lowerQuery = query.toLowerCase();
+
+    switch (activeTab) {
+      case "modules":
+        if (!originalCache.current.modules.length) {
+          originalCache.current.modules = [...modules];
+        }
+        setModules(
+          originalCache.current.modules.filter(
+            (m) =>
+              m.name.toLowerCase().includes(lowerQuery) ||
+              m.code.toLowerCase().includes(lowerQuery)
+          )
+        );
+        break;
+
+      case "students":
+        if (!originalCache.current.students.length) {
+          originalCache.current.students = [...students];
+        }
+        setStudents(
+          originalCache.current.students.filter(
+            (s) =>
+              s.name.toLowerCase().includes(lowerQuery) ||
+              s.studentNumber?.toLowerCase().includes(lowerQuery)
+          )
+        );
+        break;
+
+      case "lecturers":
+        if (!originalCache.current.lecturers.length) {
+          originalCache.current.lecturers = [...lecturers];
+        }
+        setLecturers(
+          originalCache.current.lecturers.filter(
+            (l) =>
+              l.name.toLowerCase().includes(lowerQuery) ||
+              l.email?.toLowerCase().includes(lowerQuery)
+          )
+        );
+        break;
+
+      case "class":
+        if (!originalCache.current.classes.length) {
+          originalCache.current.classes = [...classes];
+        }
+        setClasses(
+          originalCache.current.classes.filter((c) => {
+            const moduleName =
+              modules.find((m) => m.id === c.moduleId)?.name || "";
+            const lecturerName =
+              lecturers.find((l) => l.id === c.lecturer)?.name || "";
+            const studentNames = (c.students || [])
+              .map((sid) => students.find((s) => s.id === sid)?.name || "")
+              .join(" ");
+            return (
+              moduleName.toLowerCase().includes(lowerQuery) ||
+              lecturerName.toLowerCase().includes(lowerQuery) ||
+              studentNames.toLowerCase().includes(lowerQuery) ||
+              c.location?.toLowerCase().includes(lowerQuery) ||
+              c.course?.toLowerCase().includes(lowerQuery)
+            );
+          })
+        );
+        break;
+    }
+
+    // Reset to original state if query is empty
+    if (!query) {
+      switch (activeTab) {
+        case "modules":
+          setModules(originalCache.current.modules);
+          break;
+        case "students":
+          setStudents(originalCache.current.students);
+          break;
+        case "lecturers":
+          setLecturers(originalCache.current.lecturers);
+          break;
+        case "class":
+          setClasses(originalCache.current.classes);
+          break;
+      }
+    }
+  };
+
+  // When switching tabs, restore cached data
+  useEffect(() => {
+    setSearchQuery(""); // reset search input
+
+    switch (activeTab) {
+      case "modules":
+        setModules(
+          originalCache.current.modules.length
+            ? originalCache.current.modules
+            : modules
+        );
+        break;
+      case "students":
+        setStudents(
+          originalCache.current.students.length
+            ? originalCache.current.students
+            : students
+        );
+        break;
+      case "lecturers":
+        setLecturers(
+          originalCache.current.lecturers.length
+            ? originalCache.current.lecturers
+            : lecturers
+        );
+        break;
+      case "class":
+        setClasses(
+          originalCache.current.classes.length
+            ? originalCache.current.classes
+            : classes
+        );
+        break;
+    }
+  }, [activeTab]);
+
+  const deleteClass = async (id) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/class/${id}/delete`, {
+        method: "PUT",
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setClasses((prev) => prev.filter((cls) => cls.id !== id));
+      } else {
+        alert(result.error || "Failed to delete class");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    }
+  };
 
   // Fetch functions
   const fetchStudents = async () => {
@@ -75,16 +235,20 @@ const Admin = () => {
       if (!res.ok) throw new Error("Failed to fetch modules");
       const data = await res.json();
       setModules(data);
+      console.log(data);
     } catch (error) {
       console.error("Error fetching modules:", error);
     }
   };
 
+  // Fetch classes with logs
   const fetchClasses = async () => {
     try {
+      console.log("Fetching classes from backend...");
       const res = await fetch(`${BACKEND_URL}/class`);
       if (!res.ok) throw new Error("Failed to fetch classes");
       const data = await res.json();
+      console.log("Raw classes data fetched:", data);
       setClasses(data);
     } catch (error) {
       console.error("Error fetching classes:", error);
@@ -187,20 +351,33 @@ const Admin = () => {
         Logout
       </button>
 
-      <div className="flex gap-4 mb-6 border-b-2 border-blue-900 pb-2">
-        {["modules", "students", "lecturers", "class"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2 rounded-t-md font-semibold cursor-pointer capitalize transition ${
-              activeTab === tab
-                ? "bg-blue-900 text-white shadow-md"
-                : "bg-gray-100 text-blue-900 hover:bg-blue-100"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      <div className="flex items-center mb-6 gap-6">
+        {/* Tabs */}
+        <div className="flex gap-2">
+          {["modules", "students", "lecturers", "class"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-2 rounded-t-md font-semibold cursor-pointer capitalize transition ${
+                activeTab === tab
+                  ? "bg-blue-900 text-white shadow-md"
+                  : "bg-gray-100 text-blue-900 hover:bg-blue-100"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+        {/* Search bar */}
+        <div className="flex-1 max-w-md">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-blue-900 transition"
+          />
+        </div>
       </div>
 
       <div className="space-y-10">
@@ -235,9 +412,9 @@ const Admin = () => {
             <table className="w-full mt-6 table-auto border border-blue-900 rounded-md overflow-hidden">
               <thead className="bg-blue-900 text-white">
                 <tr>
-                  <th className="p-2">Code</th>
-                  <th className="p-2">Name</th>
-                  <th className="p-2">Actions</th>
+                  <th className="p-2 text-left">Code</th>
+                  <th className="p-2 text-left">Name</th>
+                  <th className="p-2 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -254,7 +431,15 @@ const Admin = () => {
                       </button>
                       <button
                         className="text-red-700 hover:underline"
-                        onClick={() => deleteModule(mod.id)}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Are you sure you want to delete the module "${mod.name}"?`
+                            )
+                          ) {
+                            deleteModule(mod.id);
+                          }
+                        }}
                       >
                         Delete
                       </button>
@@ -281,7 +466,9 @@ const Admin = () => {
             {showStudentForm && (
               <CreateStudentForm
                 onSubmit={(data) => {
-                  createUser({ ...data, type: "student" });
+                  if (activeTab !== "students" && data.type !== "student") {
+                    createUser(data);
+                  }
                   setShowStudentForm(false);
                 }}
                 onClose={() => setShowStudentForm(false)}
@@ -292,10 +479,10 @@ const Admin = () => {
             <table className="w-full mt-6 table-auto border border-blue-900 rounded-md overflow-hidden">
               <thead className="bg-blue-900 text-white">
                 <tr>
-                  <th className="p-2">Name</th>
-                  <th className="p-2">Student Number</th>
-                  <th className="p-2">Modules</th>
-                  <th className="p-2">Actions</th>
+                  <th className="p-2 text-left">Name</th>
+                  <th className="p-2 text-left">Student Number</th>
+                  <th className="p-2 text-left">Modules</th>
+                  <th className="p-2 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -306,14 +493,50 @@ const Admin = () => {
                       {s.studentNumber}
                     </td>
                     <td className="border-t border-blue-900 p-2">
-                      {(s.modules || []).join(", ")}
+                      {(s.modules || [])
+                        .map((id) => {
+                          const mod = modules.find((m) => m.id === id); // match by id instead of code
+                          return mod ? mod.name : id;
+                        })
+                        .join(", ")}
                     </td>
-                    <td className="border-t border-blue-900 p-2">
+
+                    <td className="border-t border-blue-900 p-2 space-x-2">
                       <button
                         className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
                         onClick={() => handleEditClick("student", s)}
                       >
                         Edit
+                      </button>
+
+                      <button
+                        className="text-red-700 hover:underline"
+                        onClick={async () => {
+                          if (
+                            window.confirm(
+                              `Are you sure you want to delete the student "${s.name}"?`
+                            )
+                          ) {
+                            try {
+                              const res = await fetch(
+                                `${BACKEND_URL}/users/${s.id}/delete`,
+                                {
+                                  method: "PUT",
+                                }
+                              );
+                              if (!res.ok) throw new Error("Failed to delete");
+                              // remove from state after delete
+                              setStudents((prev) =>
+                                prev.filter((stu) => stu.id !== s.id)
+                              );
+                            } catch (err) {
+                              console.error(err);
+                              alert("Error deleting student");
+                            }
+                          }
+                        }}
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -337,9 +560,9 @@ const Admin = () => {
             <table className="w-full mt-6 table-auto border border-blue-900 rounded-md overflow-hidden">
               <thead className="bg-blue-900 text-white">
                 <tr>
-                  <th className="p-2">Name</th>
-                  <th className="p-2">Email</th>
-                  <th className="p-2">Actions</th>
+                  <th className="p-2 text-left">Name</th>
+                  <th className="p-2 text-left">Email</th>
+                  <th className="p-2 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -349,10 +572,39 @@ const Admin = () => {
                     <td className="border-t border-blue-900 p-2">{l.email}</td>
                     <td className="border-t border-blue-900 p-2">
                       <button
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded mr-2"
                         onClick={() => handleEditClick("lecturer", l)}
                       >
                         Edit
+                      </button>
+                      <button
+                        className="text-red-700 hover:underline"
+                        onClick={async () => {
+                          if (
+                            window.confirm(
+                              `Are you sure you want to delete the lecturer "${l.name}"?`
+                            )
+                          ) {
+                            try {
+                              const res = await fetch(
+                                `${BACKEND_URL}/users/${l.id}/delete`,
+                                {
+                                  method: "PUT",
+                                }
+                              );
+                              if (!res.ok) throw new Error("Failed to delete");
+                              // remove from lecturers state after delete
+                              setLecturers((prev) =>
+                                prev.filter((lec) => lec.id !== l.id)
+                              );
+                            } catch (err) {
+                              console.error(err);
+                              alert("Error deleting lecturer");
+                            }
+                          }
+                        }}
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -397,13 +649,13 @@ const Admin = () => {
             <table className="w-full mt-6 table-auto border border-blue-900 rounded-md overflow-hidden">
               <thead className="bg-blue-900 text-white">
                 <tr>
-                  <th className="p-2">Module</th>
-                  <th className="p-2">Time</th>
-                  <th className="p-2">Location</th>
-                  <th className="p-2">Lecturer</th>
-                  <th className="p-2">Course</th>
-                  <th className="p-2">Students</th>
-                  <th className="p-2">Actions</th>
+                  <th className="p-2 text-left">Module</th>
+                  <th className="p-2 text-left">Time</th>
+                  <th className="p-2 text-left">Location</th>
+                  <th className="p-2 text-left">Lecturer</th>
+                  <th className="p-2 text-left">Course</th>
+                  <th className="p-2 text-left">Students</th>
+                  <th className="p-2 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -425,8 +677,27 @@ const Admin = () => {
                     return (
                       <tr key={cls.id} className="even:bg-gray-100">
                         <td className="border-t border-blue-900 p-2">
-                          {cls.module}
+                          {(() => {
+                            if (!cls.moduleId) return "";
+                            const moduleIds = [cls.moduleId]; // always wrap single string as array
+                            const moduleNames = moduleIds.map((id) => {
+                              const mod = modules.find((m) => m.id === id);
+                              if (!mod) {
+                                console.warn(
+                                  `Module ID not found in modules list: ${id}`
+                                );
+                              }
+                              return mod ? mod.name : id;
+                            });
+                            console.log(
+                              `Class ID: ${cls.id}, Module ID: ${
+                                cls.moduleId
+                              }, Module Name: ${moduleNames.join(", ")}`
+                            );
+                            return moduleNames.join(", ");
+                          })()}
                         </td>
+
                         <td className="border-t border-blue-900 p-2">
                           {cls.startTime && cls.endTime
                             ? `${new Date(
@@ -458,10 +729,24 @@ const Admin = () => {
                         </td>
                         <td className="border-t border-blue-900 p-2">
                           <button
-                            className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded mr-2"
                             onClick={() => setEditingClass(cls)}
                           >
                             Edit
+                          </button>
+                          <button
+                            className="text-red-700 hover:underline"
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Are you sure you want to delete this class?`
+                                )
+                              ) {
+                                deleteClass(cls.id);
+                              }
+                            }}
+                          >
+                            Delete
                           </button>
                         </td>
                       </tr>
@@ -538,6 +823,7 @@ const Admin = () => {
                 fetchClasses();
                 setEditingClass(null);
               }}
+              modules={modules}
               students={students}
               lecturers={lecturers}
             />

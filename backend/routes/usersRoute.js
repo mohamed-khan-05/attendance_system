@@ -14,10 +14,9 @@ module.exports = (db) => {
       const snapshot = await usersCollection
         .where("type", "==", "student")
         .get();
-      const students = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const students = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((s) => s.status !== "deleted"); // filter by status
       res.json(students);
     } catch (err) {
       console.error("Error fetching students:", err);
@@ -31,10 +30,9 @@ module.exports = (db) => {
       const snapshot = await usersCollection
         .where("type", "==", "lecturer")
         .get();
-      const lecturers = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const lecturers = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((l) => l.status !== "deleted"); // filter by status
       res.json(lecturers);
     } catch (err) {
       console.error("Error fetching lecturers:", err);
@@ -150,12 +148,10 @@ module.exports = (db) => {
       }
 
       if ((oldPassword && !newPassword) || (!oldPassword && newPassword)) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "Both old and new password must be provided to change password",
-          });
+        return res.status(400).json({
+          error:
+            "Both old and new password must be provided to change password",
+        });
       }
 
       if (oldPassword && newPassword) {
@@ -214,6 +210,25 @@ module.exports = (db) => {
     } catch (err) {
       console.error("Error updating student:", err);
       res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Soft-delete user by setting status to "deleted" but keeping the name
+  router.put("/:id/delete", async (req, res) => {
+    const { id } = req.params;
+    try {
+      const userDoc = await usersCollection.doc(id).get();
+      if (!userDoc.exists)
+        return res.status(404).json({ error: "User not found" });
+
+      await usersCollection.doc(id).update({
+        status: "deleted", // new field
+      });
+
+      res.json({ message: "User marked as deleted" });
+    } catch (err) {
+      console.error("Error deleting user:", err);
+      res.status(500).json({ error: "Failed to delete user" });
     }
   });
 

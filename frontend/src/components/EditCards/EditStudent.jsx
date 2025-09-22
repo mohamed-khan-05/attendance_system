@@ -5,24 +5,24 @@ const EditStudent = ({ studentData, modules, onCancel, onSave }) => {
   const [formData, setFormData] = useState({
     name: "",
     studentNumber: "",
-    modules: [], // array of selected module codes
+    modules: [], // Firestore module IDs
   });
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
-
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+  // Initialize form data from studentData
   useEffect(() => {
     if (studentData) {
-      const studentModules = Array.isArray(studentData.modules)
-        ? studentData.modules
-        : typeof studentData.modules === "string"
-        ? studentData.modules
-            .split(",")
-            .map((m) => m.trim())
-            .filter(Boolean)
-        : [];
+      // Normalize modules: array of strings
+      let studentModules = [];
+      if (Array.isArray(studentData.modules)) {
+        studentModules = studentData.modules.map(String);
+      } else if (studentData.modules) {
+        // Split comma-separated string into array
+        studentModules = studentData.modules.split(",").map((id) => id.trim());
+      }
 
       setFormData({
         name: studentData.name || "",
@@ -32,30 +32,31 @@ const EditStudent = ({ studentData, modules, onCancel, onSave }) => {
     }
   }, [studentData]);
 
-  // Close dropdown if clicked outside
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
       }
     };
-    if (dropdownOpen) {
+    if (dropdownOpen)
       document.addEventListener("mousedown", handleClickOutside);
-    } else {
-      document.removeEventListener("mousedown", handleClickOutside);
-    }
+    else document.removeEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dropdownOpen]);
 
-  const toggleModule = (moduleCode) => {
+  const toggleModule = (moduleId) => {
     setFormData((prev) => {
-      const modulesSet = new Set(prev.modules);
-      if (modulesSet.has(moduleCode)) {
-        modulesSet.delete(moduleCode);
+      const modulesSet = new Set(prev.modules.map(String));
+      const idStr = String(moduleId);
+      if (modulesSet.has(idStr)) {
+        modulesSet.delete(idStr);
       } else {
-        modulesSet.add(moduleCode);
+        modulesSet.add(idStr);
       }
-      return { ...prev, modules: Array.from(modulesSet) };
+      const newModules = Array.from(modulesSet);
+
+      return { ...prev, modules: newModules };
     });
   };
 
@@ -78,25 +79,29 @@ const EditStudent = ({ studentData, modules, onCancel, onSave }) => {
         studentNumber: formData.studentNumber,
         modules: formData.modules,
       });
+
       onSave();
     } catch (error) {
       console.error("Error updating student:", error.response || error);
-
-      // Show backend message if available, fallback to generic
-      if (error.response && error.response.data && error.response.data.error) {
-        alert(`Failed to update student: ${error.response.data.error}`);
-      } else {
-        alert("Failed to update student due to server error");
-      }
+      alert(error.response?.data?.error || "Failed to update student");
     }
   };
+  const studentModuleIds = new Set(formData.modules.map(String));
 
-  // Sort modules: selected first, then the rest
-  const sortedModules = [...modules].sort((a, b) => {
-    const aSelected = formData.modules.includes(a.code) ? 0 : 1;
-    const bSelected = formData.modules.includes(b.code) ? 0 : 1;
-    return aSelected - bSelected;
-  });
+  const sortedModules = [...modules]
+    .filter((mod) => mod.status !== "deleted")
+    .sort((a, b) => {
+      const aSelected = studentModuleIds.has(String(a.id)) ? 0 : 1;
+      const bSelected = studentModuleIds.has(String(b.id)) ? 0 : 1;
+      if (aSelected !== bSelected) return aSelected - bSelected;
+      return a.name.localeCompare(b.name);
+    });
+  const selectedModulesText =
+    formData.modules
+      .map((id) => modules.find((mod) => mod.id === id))
+      .filter(Boolean)
+      .map((mod) => `${mod.name} (${mod.code})`)
+      .join(", ") || "Select modules...";
 
   return (
     <div className="p-4 max-w-md">
@@ -106,6 +111,7 @@ const EditStudent = ({ studentData, modules, onCancel, onSave }) => {
           <label className="block font-medium mb-1">Full Name</label>
           <input
             name="name"
+            maxLength={50}
             value={formData.name}
             onChange={handleChange}
             className="w-full p-2 border rounded"
@@ -116,6 +122,7 @@ const EditStudent = ({ studentData, modules, onCancel, onSave }) => {
           <label className="block font-medium mb-1">Student Number</label>
           <input
             name="studentNumber"
+            maxLength={10}
             value={formData.studentNumber}
             onChange={handleChange}
             className="w-full p-2 border rounded"
@@ -138,10 +145,9 @@ const EditStudent = ({ studentData, modules, onCancel, onSave }) => {
               }
             }}
           >
-            {formData.modules.length > 0
-              ? formData.modules.join(", ")
-              : "Select modules..."}
+            {selectedModulesText}
           </div>
+
           {dropdownOpen && (
             <div
               className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded border bg-white shadow-lg"
@@ -150,21 +156,21 @@ const EditStudent = ({ studentData, modules, onCancel, onSave }) => {
               {sortedModules.length === 0 && (
                 <div className="p-2 text-gray-500">No modules available</div>
               )}
-              {sortedModules.map((module) => {
-                const checked = formData.modules.includes(module.code);
+              {sortedModules.map((mod) => {
+                const checked = studentModuleIds.has(String(mod.id));
                 return (
                   <label
-                    key={module.code}
+                    key={mod.id}
                     className="flex items-center px-3 py-1 cursor-pointer hover:bg-gray-100"
                   >
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggleModule(module.code)}
+                      onChange={() => toggleModule(mod.id)}
                       className="mr-2"
                     />
                     <span>
-                      {module.name} ({module.code})
+                      {mod.name} ({mod.code})
                     </span>
                   </label>
                 );

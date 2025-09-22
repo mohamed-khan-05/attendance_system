@@ -7,14 +7,26 @@ const CreateCard = ({ title, fields, onSubmit }) => {
   const [show, setShow] = useState(false);
 
   const handleChange = (e, field) => {
-    const value =
+    let value =
       field.type === "array" ? e.target.value.split(",") : e.target.value;
+
+    // Trim to maxLength if defined
+    if (field.maxLength) {
+      if (field.type === "array") {
+        value = value.map((v) => v.slice(0, field.maxLength));
+      } else {
+        value = value.slice(0, field.maxLength);
+      }
+    }
+
     setFormData({ ...formData, [field.name]: value });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit(formData);
+
+    // Reset form data
     setFormData(
       Object.fromEntries(
         fields.map((field) => [field.name, field.default || ""])
@@ -67,6 +79,7 @@ const CreateCard = ({ title, fields, onSubmit }) => {
                     className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003366]"
                     value={formData[field.name]}
                     onChange={(e) => handleChange(e, field)}
+                    maxLength={field.maxLength} // enforce max length in browser
                   />
                 )}
               </div>

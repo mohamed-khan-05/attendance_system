@@ -10,7 +10,7 @@ module.exports = (db) => {
       const snapshot = await modulesCollection.get();
       const modules = snapshot.docs
         .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((mod) => mod.status !== "deleted"); // 👈 Exclude deleted ones
+        .filter((mod) => mod.status !== "deleted");
       res.json(modules);
     } catch (err) {
       console.error("Error fetching modules:", err);
@@ -29,18 +29,33 @@ module.exports = (db) => {
     }
 
     try {
-      // Prevent duplicate module codes
-      const existing = await modulesCollection.where("code", "==", code).get();
+      // Prevent duplicate active module codes
+      const existingActiveCode = await modulesCollection
+        .where("code", "==", code)
+        .where("status", "==", "active")
+        .get();
+      if (!existingActiveCode.empty) {
+        return res
+          .status(400)
+          .json({ error: "Active module code already exists" });
+      }
 
-      if (!existing.empty) {
-        return res.status(400).json({ error: "Module code already exists" });
+      // Prevent duplicate active module names
+      const existingActiveName = await modulesCollection
+        .where("name", "==", name)
+        .where("status", "==", "active")
+        .get();
+      if (!existingActiveName.empty) {
+        return res
+          .status(400)
+          .json({ error: "Active module name already exists" });
       }
 
       const docRef = await modulesCollection.add({
         code,
         name,
         status: "active",
-      }); // <-- add status here
+      });
       res.status(201).json({ id: docRef.id, code, name, status: "active" });
     } catch (err) {
       console.error("Error creating module:", err);
@@ -48,7 +63,6 @@ module.exports = (db) => {
     }
   });
 
-  // Update a module by ID
   // Update a module by ID
   router.put("/:id", async (req, res) => {
     const { id } = req.params;
@@ -70,16 +84,34 @@ module.exports = (db) => {
 
       const oldCode = moduleDoc.data().code;
 
-      // Check for duplicate code in other modules
-      const codeQuery = await modulesCollection.where("code", "==", code).get();
-      const duplicate = codeQuery.docs.find((doc) => doc.id !== id);
-      if (duplicate) {
-        return res.status(400).json({ error: "Module code already exists" });
+      // Check for duplicate active code in other modules
+      const codeQuery = await modulesCollection
+        .where("code", "==", code)
+        .where("status", "==", "active")
+        .get();
+      const codeDuplicate = codeQuery.docs.find((doc) => doc.id !== id);
+      if (codeDuplicate) {
+        return res
+          .status(400)
+          .json({ error: "Active module code already exists" });
+      }
+
+      // Check for duplicate active name in other modules
+      const nameQuery = await modulesCollection
+        .where("name", "==", name)
+        .where("status", "==", "active")
+        .get();
+      const nameDuplicate = nameQuery.docs.find((doc) => doc.id !== id);
+      if (nameDuplicate) {
+        return res
+          .status(400)
+          .json({ error: "Active module name already exists" });
       }
 
       // Update the module document
       await moduleRef.update({ code, name });
 
+      // Sync references in users and classes (same as your existing code)
       const usersRef = db.collection("users");
       const usersSnap = await usersRef
         .where("modules", "array-contains", oldCode)
@@ -91,12 +123,10 @@ module.exports = (db) => {
         const userData = doc.data();
         const docRef = usersRef.doc(doc.id);
 
-        // Update `modules` array
         const modules = userData.modules || [];
         const updatedModules = modules.map((m) => (m === oldCode ? code : m));
         batch.update(docRef, { modules: updatedModules });
 
-        // Update `marks` map (only if type === "student")
         if (
           userData.type === "student" &&
           userData.marks?.[oldCode] !== undefined
@@ -108,10 +138,8 @@ module.exports = (db) => {
         }
       });
 
-      // Update any class documents that reference the old module code
       const classRef = db.collection("class");
       const classSnap = await classRef.where("module", "==", oldCode).get();
-
       classSnap.forEach((doc) => {
         batch.update(classRef.doc(doc.id), { module: code });
       });
@@ -131,7 +159,10 @@ module.exports = (db) => {
   router.put("/:id/delete", async (req, res) => {
     const { id } = req.params;
     try {
-      await modulesCollection.doc(id).update({ status: "deleted" });
+      await modulesCollection.doc(id).update({
+        status: "deleted",
+      });
+
       res.json({ message: "Module marked as deleted" });
     } catch (err) {
       console.error("Error updating module status:", err);

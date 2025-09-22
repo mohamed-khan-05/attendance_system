@@ -1,7 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const EditClass = ({ classData, lecturers, students, onCancel, onSave }) => {
+const EditClass = ({
+  classData,
+  lecturers = [],
+  students = [],
+  modules = [],
+  onCancel,
+  onSave,
+}) => {
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+  // Convert UNIX timestamp to HH:MM string
   const toTimeString = (unix) =>
     new Date(unix * 1000).toLocaleTimeString("en-GB", {
       hour: "2-digit",
@@ -9,15 +19,39 @@ const EditClass = ({ classData, lecturers, students, onCancel, onSave }) => {
       hour12: false,
     });
 
+  // Initialize formData safely
   const [formData, setFormData] = useState({
     ...classData,
-    startTime: toTimeString(classData.startTime),
-    endTime: toTimeString(classData.endTime),
-    students: classData.students || [],
+    startTime: classData.startTime ? toTimeString(classData.startTime) : "",
+    endTime: classData.endTime ? toTimeString(classData.endTime) : "",
+    students: Array.isArray(classData.students)
+      ? classData.students
+      : classData.students
+      ? [classData.students]
+      : [],
   });
 
   const [searchTerm, setSearchTerm] = useState("");
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+  const [moduleInfo, setModuleInfo] = useState(null);
+
+  // Update moduleInfo when modules array arrives or moduleId changes
+  useEffect(() => {
+    if (modules && modules.length > 0) {
+      const found = modules.find((mod) => mod.id === classData.moduleId);
+      if (found) {
+        setModuleInfo(found);
+      } else {
+        console.warn(
+          `Module ID not found in modules list: ${classData.moduleId}`,
+          modules
+        );
+        setModuleInfo(null);
+      }
+    } else {
+      console.warn("Modules array is empty or undefined");
+      setModuleInfo(null);
+    }
+  }, [modules, classData.moduleId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -37,6 +71,7 @@ const EditClass = ({ classData, lecturers, students, onCancel, onSave }) => {
   };
 
   const convertToUnix = (timeStr, referenceUnix) => {
+    if (!timeStr) return referenceUnix || Math.floor(Date.now() / 1000);
     const [hours, minutes] = timeStr.split(":");
     const date = new Date(referenceUnix * 1000);
     date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
@@ -45,7 +80,6 @@ const EditClass = ({ classData, lecturers, students, onCancel, onSave }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const payload = {
       ...formData,
       startTime: convertToUnix(formData.startTime, classData.startTime),
@@ -54,9 +88,10 @@ const EditClass = ({ classData, lecturers, students, onCancel, onSave }) => {
 
     try {
       await axios.put(`${BACKEND_URL}/class/${classData.id}`, payload);
+
       onSave();
     } catch (error) {
-      console.error("Error updating class:", error);
+      console.error("Error updating class:", error.response || error);
       alert("Failed to update class");
     }
   };
@@ -77,16 +112,18 @@ const EditClass = ({ classData, lecturers, students, onCancel, onSave }) => {
         onSubmit={handleSubmit}
         className="space-y-4 max-h-[75vh] overflow-y-auto"
       >
+        {/* Module name display */}
         <div>
           <label className="block font-medium">Module (locked)</label>
           <input
             type="text"
-            value={formData.module}
+            value={moduleInfo ? `${moduleInfo.name} (${moduleInfo.code})` : ""}
             disabled
             className="w-full p-2 border rounded bg-gray-100"
           />
         </div>
 
+        {/* Start and End Times */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block font-medium">Start Time</label>
@@ -112,23 +149,26 @@ const EditClass = ({ classData, lecturers, students, onCancel, onSave }) => {
           </div>
         </div>
 
+        {/* Location */}
         <div>
           <label className="block font-medium">Location</label>
           <input
             type="text"
             name="location"
-            value={formData.location}
+            maxLength={50}
+            value={formData.location || ""}
             onChange={handleChange}
             className="w-full p-2 border rounded"
             required
           />
         </div>
 
+        {/* Lecturer */}
         <div>
           <label className="block font-medium">Lecturer</label>
           <select
             name="lecturer"
-            value={formData.lecturer}
+            value={formData.lecturer || ""}
             onChange={handleChange}
             className="w-full p-2 border rounded"
             required
@@ -142,22 +182,26 @@ const EditClass = ({ classData, lecturers, students, onCancel, onSave }) => {
           </select>
         </div>
 
+        {/* Course */}
         <div>
           <label className="block font-medium">Course</label>
           <input
             type="text"
+            maxLength={50}
             name="course"
-            value={formData.course}
+            value={formData.course || ""}
             onChange={handleChange}
             className="w-full p-2 border rounded"
             required
           />
         </div>
 
+        {/* Students */}
         <div>
           <label className="block font-medium mb-1">Students</label>
           <input
             type="text"
+            maxLength={50}
             placeholder="Search students..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -181,6 +225,7 @@ const EditClass = ({ classData, lecturers, students, onCancel, onSave }) => {
           </div>
         </div>
 
+        {/* Action Buttons */}
         <div className="flex gap-4 mt-4">
           <button
             type="submit"

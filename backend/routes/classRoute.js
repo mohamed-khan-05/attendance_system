@@ -23,7 +23,7 @@ module.exports = (db) => {
   // Create a new class
   router.post("/", async (req, res) => {
     const {
-      module,
+      moduleId,
       startTime,
       endTime,
       location,
@@ -33,7 +33,7 @@ module.exports = (db) => {
     } = req.body;
 
     if (
-      !module ||
+      !moduleId ||
       !startTime ||
       !endTime ||
       !location ||
@@ -52,14 +52,14 @@ module.exports = (db) => {
       };
 
       const newClass = {
-        module,
+        moduleId,
         startTime: parseTimeToUnix(startTime),
         endTime: parseTimeToUnix(endTime),
         location,
         lecturer,
         course,
         students,
-        studentsCount: students.length || 0,
+        studentsCount: students.length,
       };
 
       const docRef = await classCollection.add(newClass);
@@ -72,23 +72,27 @@ module.exports = (db) => {
     }
   });
 
-  // Update class (lecturer assignment or time update)
-  // Update class
+  // Update class (lecturer assignment, time, students)
   router.put("/:classId", async (req, res) => {
     const { classId } = req.params;
-    const { startTime, endTime, location, lecturer, course, students } =
-      req.body;
+    const {
+      moduleId,
+      startTime,
+      endTime,
+      location,
+      lecturer,
+      course,
+      students,
+    } = req.body;
 
     try {
       const classRef = classCollection.doc(classId);
       const doc = await classRef.get();
-
-      if (!doc.exists) {
+      if (!doc.exists)
         return res.status(404).json({ error: "Class not found" });
-      }
 
       const updateData = {};
-
+      if (moduleId) updateData.moduleId = moduleId;
       if (typeof startTime === "number") updateData.startTime = startTime;
       if (typeof endTime === "number") updateData.endTime = endTime;
       if (location) updateData.location = location;
@@ -120,7 +124,6 @@ module.exports = (db) => {
         id: doc.id,
         ...doc.data(),
       }));
-
       res.json(attendance);
     } catch (err) {
       console.error("Error fetching attendance:", err);
@@ -128,52 +131,26 @@ module.exports = (db) => {
     }
   });
 
-  // Get classes assigned to a specific lecturer
-  // Get classes assigned to a specific lecturer with non-deleted modules
+  // Get classes assigned to a lecturer (with non-deleted modules)
   router.get("/lecturer/:lecturerId", async (req, res) => {
     try {
       const lecturerId = req.params.lecturerId;
-
-      // Fetch classes for this lecturer
       const snapshot = await classCollection
         .where("lecturer", "==", lecturerId)
         .get();
-
       const classDocs = snapshot.docs;
 
       const classesWithModules = await Promise.all(
         classDocs.map(async (doc) => {
           const classData = doc.data();
+          const moduleId = classData.moduleId;
+          if (!moduleId) return null;
 
-          const moduleCode = classData.module;
-          if (!moduleCode) {
-            console.warn(`Class ${doc.id} missing module code`);
+          const moduleDoc = await db.collection("modules").doc(moduleId).get();
+          if (!moduleDoc.exists || moduleDoc.data().status === "deleted")
             return null;
-          }
 
-          // Query module by code field
-          const moduleQuery = await db
-            .collection("modules")
-            .where("code", "==", moduleCode)
-            .limit(1)
-            .get();
-
-          if (moduleQuery.empty) {
-            console.warn(
-              `Module with code ${moduleCode} not found for class ${doc.id}`
-            );
-            return null;
-          }
-
-          const moduleDoc = moduleQuery.docs[0];
           const moduleData = moduleDoc.data();
-
-          // Skip if module is deleted
-          if (moduleData.status === "deleted") {
-            return null;
-          }
-
-          // Return class with module info if needed (optional)
           return {
             id: doc.id,
             ...classData,
@@ -183,13 +160,22 @@ module.exports = (db) => {
         })
       );
 
-      // Filter out nulls (deleted modules or missing modules)
-      const filteredClasses = classesWithModules.filter(Boolean);
-
-      res.json(filteredClasses);
+      res.json(classesWithModules.filter(Boolean));
     } catch (err) {
       console.error("Error fetching lecturer's classes:", err);
       res.status(500).json({ error: "Failed to fetch classes" });
+    }
+  });
+
+  // Mark class as deleted
+  router.put("/:id/delete", async (req, res) => {
+    const { id } = req.params;
+    try {
+      await classCollection.doc(id).update({ status: "deleted" });
+      res.json({ message: "Class marked as deleted" });
+    } catch (err) {
+      console.error("Error deleting class:", err);
+      res.status(500).json({ error: "Failed to delete class" });
     }
   });
 
