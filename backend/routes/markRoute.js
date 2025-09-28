@@ -41,6 +41,7 @@ module.exports = (db) => {
   // GET /mark/:lecturerId
   router.get("/:lecturerId", async (req, res) => {
     const { lecturerId } = req.params;
+    console.log(`Fetching attendance data for lecturer: ${lecturerId}`);
 
     try {
       // Fetch classes for this lecturer
@@ -50,38 +51,39 @@ module.exports = (db) => {
         .get();
 
       const classDocs = classSnapshot.docs;
+      console.log(`Found ${classDocs.length} classes for lecturer`);
 
       const results = await Promise.all(
         classDocs.map(async (classDoc) => {
           const classData = classDoc.data();
           const classId = classDoc.id;
 
-          const moduleCode = classData.module; // moduleCode stored in class doc
+          console.log(`Processing class ${classId}`, classData);
 
-          if (!moduleCode) {
-            console.warn(`Class ${classId} has no module code`);
+          // Skip deleted classes
+          if (classData.status === "deleted") {
+            console.warn(`Class ${classId} is deleted, skipping`);
             return null;
           }
 
-          // Query module document by 'code' field
-          const moduleQuery = await db
-            .collection("modules")
-            .where("code", "==", moduleCode)
-            .limit(1)
-            .get();
+          const moduleId = classData.moduleId; // new schema uses moduleId
+          if (!moduleId) {
+            console.warn(`Class ${classId} has no moduleId`);
+            return null;
+          }
 
-          if (moduleQuery.empty) {
+          // Fetch module document by doc id
+          const moduleDoc = await db.collection("modules").doc(moduleId).get();
+          if (!moduleDoc.exists) {
             console.warn(
-              `Module with code ${moduleCode} not found for class ${classId}`
+              `Module with ID ${moduleId} not found for class ${classId}`
             );
             return null;
           }
 
-          const moduleDoc = moduleQuery.docs[0];
           const moduleData = moduleDoc.data();
-
           if (moduleData.status === "deleted") {
-            console.warn(`Module ${moduleCode} is marked as deleted`);
+            console.warn(`Module ${moduleData.code} is marked as deleted`);
             return null;
           }
 
@@ -91,6 +93,7 @@ module.exports = (db) => {
             .where("classId", "==", classId)
             .get();
           const attendanceData = attendanceSnapshot.docs.map((d) => d.data());
+          console.log(`Class ${classId} attendance records:`, attendanceData);
 
           // Fetch student user docs
           const studentIds = classData.students || [];
@@ -98,7 +101,7 @@ module.exports = (db) => {
             studentIds.map((sid) => db.collection("users").doc(sid).get())
           );
 
-          // Build student attendance list, now including marks
+          // Build student attendance list including marks
           const studentsList = studentDocs.map((doc) => {
             const userData = doc.exists ? doc.data() : {};
             const attendanceRecord = attendanceData.map((record) => ({
@@ -111,7 +114,7 @@ module.exports = (db) => {
               name: userData.name || "Unknown",
               studentNumber: userData.studentNumber || "",
               attendance: attendanceRecord,
-              marks: userData.marks || {}, // <--- This line added here
+              marks: userData.marks || {},
             };
           });
 
@@ -125,8 +128,9 @@ module.exports = (db) => {
         })
       );
 
-      // Remove any nulls (classes missing modules, deleted, etc)
+      // Remove any nulls (deleted classes, missing modules, etc)
       const filteredResults = results.filter(Boolean);
+      console.log("Filtered results to return:", filteredResults);
 
       res.json(filteredResults);
     } catch (err) {

@@ -53,6 +53,7 @@ const App = () => {
       const res = await axios.get(`${BACKEND_URL}/mark/${lecturerId}`);
       setAttendanceData(res.data);
       setLastFetched(new Date());
+      console.log("Backend attendance data:", res); // <-- log here
     } catch (error) {
       console.error("Error fetching attendance:", error);
     }

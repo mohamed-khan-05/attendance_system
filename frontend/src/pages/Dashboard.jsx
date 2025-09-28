@@ -136,7 +136,7 @@ const Dashboard = () => {
                   className="bg-[#eef3fa] border border-[#d0d9e8] rounded-2xl p-6 shadow-md flex justify-between items-center"
                 >
                   <div className="space-y-2 text-base text-[#003366]">
-                    <p className="font-semibold text-lg">{cls.module}</p>
+                    <p className="font-semibold text-lg">{cls.moduleName}</p>
                     <p>
                       Time:{" "}
                       {cls.startTime && cls.endTime
@@ -165,7 +165,7 @@ const Dashboard = () => {
                           state: {
                             students: cls.students,
                             classId: cls.id,
-                            module: cls.module,
+                            module: cls.moduleName,
                           },
                         })
                       }

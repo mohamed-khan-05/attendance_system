@@ -5,14 +5,17 @@ module.exports = (db) => {
   const router = express.Router();
   const classCollection = db.collection("class");
 
-  // Get all classes
+  // backend: Get all classes except deleted
   router.get("/", async (req, res) => {
     try {
+      // get everything
       const snapshot = await classCollection.get();
-      const classes = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+
+      // filter on server side instead of Firestore's '!='
+      const classes = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((cls) => cls.status !== "deleted"); // only alive classes
+
       res.json(classes);
     } catch (err) {
       console.error("Error fetching classes:", err);
@@ -132,25 +135,32 @@ module.exports = (db) => {
   });
 
   // Get classes assigned to a lecturer (with non-deleted modules)
+  // Get classes assigned to a lecturer (skip deleted classes & deleted modules)
   router.get("/lecturer/:lecturerId", async (req, res) => {
     try {
       const lecturerId = req.params.lecturerId;
       const snapshot = await classCollection
         .where("lecturer", "==", lecturerId)
         .get();
-      const classDocs = snapshot.docs;
 
       const classesWithModules = await Promise.all(
-        classDocs.map(async (doc) => {
+        snapshot.docs.map(async (doc) => {
           const classData = doc.data();
+
+          // skip deleted classes
+          if (classData.status === "deleted") return null;
+
           const moduleId = classData.moduleId;
           if (!moduleId) return null;
 
           const moduleDoc = await db.collection("modules").doc(moduleId).get();
+
+          // skip deleted or missing modules
           if (!moduleDoc.exists || moduleDoc.data().status === "deleted")
             return null;
 
           const moduleData = moduleDoc.data();
+
           return {
             id: doc.id,
             ...classData,
@@ -160,6 +170,7 @@ module.exports = (db) => {
         })
       );
 
+      // filter out nulls before sending
       res.json(classesWithModules.filter(Boolean));
     } catch (err) {
       console.error("Error fetching lecturer's classes:", err);
